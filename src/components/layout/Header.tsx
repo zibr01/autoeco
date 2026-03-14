@@ -4,7 +4,8 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { Bell, Car, ChevronDown, Menu, User, X, LogOut, Settings, LayoutDashboard } from "lucide-react";
+import { Bell, Car, ChevronDown, Menu, User, X, LogOut, Settings, LayoutDashboard, Sun, Moon } from "lucide-react";
+import { useTheme } from "@/components/providers/ThemeProvider";
 
 const navItems = [
   { href: "/dashboard", label: "Дашборд" },
@@ -20,6 +21,7 @@ export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const { theme, toggleTheme } = useTheme();
 
   // Close user menu on outside click
   useEffect(() => {
@@ -60,7 +62,7 @@ export default function Header() {
                     className={
                       isActive
                         ? "px-3.5 py-2 rounded-lg text-sm font-medium text-brand bg-brand/[0.06] border border-brand/[0.1]"
-                        : "px-3.5 py-2 rounded-lg text-sm text-text-muted hover:text-prussian hover:bg-prussian/[0.04] transition-all"
+                        : "px-3.5 py-2 rounded-lg text-sm text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover-bg)] transition-all"
                     }
                   >
                     {item.label}
@@ -72,11 +74,24 @@ export default function Header() {
 
           {/* Right side */}
           <div className="flex items-center gap-3">
+            {/* Theme toggle */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg hover:bg-[var(--hover-bg)] transition-colors"
+              aria-label="Переключить тему"
+            >
+              {theme === "dark" ? (
+                <Sun className="w-5 h-5 text-[var(--text-muted)]" />
+              ) : (
+                <Moon className="w-5 h-5 text-[var(--text-muted)]" />
+              )}
+            </button>
+
             {isAuth ? (
               <>
                 {/* Notifications */}
-                <button className="relative p-2 rounded-lg hover:bg-prussian/[0.04] transition-colors">
-                  <Bell className="w-5 h-5 text-text-muted" />
+                <button className="relative p-2 rounded-lg hover:bg-[var(--hover-bg)] transition-colors">
+                  <Bell className="w-5 h-5 text-[var(--text-muted)]" />
                   <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-accent rounded-full" />
                 </button>
 
@@ -84,28 +99,28 @@ export default function Header() {
                 <div className="relative" ref={userMenuRef}>
                   <button
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-prussian/[0.03] border border-prussian/[0.08] hover:bg-prussian/[0.06] transition-all"
+                    className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--ghost-bg)] border border-[var(--border)] hover:bg-[var(--hover-bg-medium)] transition-all"
                   >
                     <div className="w-6 h-6 rounded-full bg-brand flex items-center justify-center">
                       <User className="w-3 h-3 text-white" />
                     </div>
-                    <span className="hidden sm:block text-sm font-medium text-text-muted">
+                    <span className="hidden sm:block text-sm font-medium text-[var(--text-muted)]">
                       {session?.user?.name || "Пользователь"}
                     </span>
-                    <ChevronDown className={`w-3.5 h-3.5 text-text-dim hidden sm:block transition-transform ${userMenuOpen ? "rotate-180" : ""}`} />
+                    <ChevronDown className={`w-3.5 h-3.5 text-[var(--text-dim)] hidden sm:block transition-transform ${userMenuOpen ? "rotate-180" : ""}`} />
                   </button>
 
                   {userMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-56 py-2 bg-white rounded-xl border border-prussian/[0.08] shadow-lg shadow-prussian/[0.08] z-50">
-                      <div className="px-4 py-2 border-b border-prussian/[0.06] mb-1">
-                        <p className="text-sm font-medium text-text">{session?.user?.name}</p>
-                        <p className="text-xs text-text-muted">{session?.user?.email}</p>
+                    <div className="absolute right-0 mt-2 w-56 py-2 bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] shadow-lg z-50">
+                      <div className="px-4 py-2 border-b border-[var(--divider)] mb-1">
+                        <p className="text-sm font-medium text-[var(--text)]">{session?.user?.name}</p>
+                        <p className="text-xs text-[var(--text-muted)]">{session?.user?.email}</p>
                       </div>
 
                       <Link
                         href="/dashboard"
                         onClick={() => setUserMenuOpen(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-text-muted hover:text-text hover:bg-prussian/[0.03] transition-all"
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover-bg)] transition-all"
                       >
                         <LayoutDashboard className="w-4 h-4" />
                         Дашборд
@@ -113,13 +128,13 @@ export default function Header() {
                       <Link
                         href="/profile"
                         onClick={() => setUserMenuOpen(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-text-muted hover:text-text hover:bg-prussian/[0.03] transition-all"
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover-bg)] transition-all"
                       >
                         <Settings className="w-4 h-4" />
                         Настройки
                       </Link>
 
-                      <div className="border-t border-prussian/[0.06] mt-1 pt-1">
+                      <div className="border-t border-[var(--divider)] mt-1 pt-1">
                         <button
                           onClick={() => {
                             setUserMenuOpen(false);
@@ -139,7 +154,7 @@ export default function Header() {
               <div className="flex items-center gap-2">
                 <Link
                   href="/auth/login"
-                  className="px-4 py-2 rounded-lg text-sm font-medium text-text-muted hover:text-prussian hover:bg-prussian/[0.04] transition-all"
+                  className="px-4 py-2 rounded-lg text-sm font-medium text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover-bg)] transition-all"
                 >
                   Войти
                 </Link>
@@ -155,14 +170,14 @@ export default function Header() {
             {/* Mobile burger */}
             {isAuth && (
               <button
-                className="md:hidden p-2 rounded-lg hover:bg-prussian/[0.04] transition-colors"
+                className="md:hidden p-2 rounded-lg hover:bg-[var(--hover-bg)] transition-colors"
                 onClick={() => setMobileOpen(!mobileOpen)}
                 aria-label="Меню"
               >
                 {mobileOpen ? (
-                  <X className="w-5 h-5 text-prussian" />
+                  <X className="w-5 h-5 text-[var(--text)]" />
                 ) : (
-                  <Menu className="w-5 h-5 text-prussian" />
+                  <Menu className="w-5 h-5 text-[var(--text)]" />
                 )}
               </button>
             )}
@@ -172,7 +187,7 @@ export default function Header() {
 
       {/* Mobile Nav */}
       {isAuth && mobileOpen && (
-        <nav className="md:hidden border-t border-prussian/[0.06]">
+        <nav className="md:hidden border-t border-[var(--divider)]">
           <div className="max-w-7xl mx-auto px-5 py-3 flex flex-col gap-1">
             {navItems.map((item) => {
               const isActive = pathname.startsWith(item.href);
@@ -184,7 +199,7 @@ export default function Header() {
                   className={
                     isActive
                       ? "px-4 py-3 rounded-lg text-sm font-medium text-brand bg-brand/[0.06]"
-                      : "px-4 py-3 rounded-lg text-sm text-text-muted hover:text-prussian hover:bg-prussian/[0.04] transition-all"
+                      : "px-4 py-3 rounded-lg text-sm text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover-bg)] transition-all"
                   }
                 >
                   {item.label}
