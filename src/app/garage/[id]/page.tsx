@@ -28,6 +28,8 @@ import {
   Plus,
   X,
   AlertCircle,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 
 const tabs = ["Журнал ТО", "Напоминания", "Документы"] as const;
@@ -101,6 +103,9 @@ export default function CarProfilePage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("Журнал ТО");
   const [showAddMaintenance, setShowAddMaintenance] = useState(false);
+  const [showEditCar, setShowEditCar] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const fetchCar = () => {
     fetch(`/api/cars/${id}`)
@@ -179,8 +184,16 @@ export default function CarProfilePage() {
                 </h1>
                 <p className="text-text-muted">{car.year} · {car.licensePlate}</p>
               </div>
-              <div className={`tag ${car.health > 80 ? "tag-green" : car.health > 60 ? "tag-accent" : "tag-red"}`}>
-                {car.health > 80 ? "Хорошее" : car.health > 60 ? "Среднее" : "Требует внимания"}
+              <div className="flex items-center gap-2">
+                <div className={`tag ${car.health > 80 ? "tag-green" : car.health > 60 ? "tag-accent" : "tag-red"}`}>
+                  {car.health > 80 ? "Хорошее" : car.health > 60 ? "Среднее" : "Требует внимания"}
+                </div>
+                <button onClick={() => setShowEditCar(true)} className="p-2 rounded-lg hover:bg-[var(--hover-bg)] transition-colors" title="Редактировать">
+                  <Pencil className="w-4 h-4 text-text-muted" />
+                </button>
+                <button onClick={() => setShowDeleteConfirm(true)} className="p-2 rounded-lg hover:bg-red-500/10 transition-colors" title="Удалить">
+                  <Trash2 className="w-4 h-4 text-text-dim hover:text-red-400" />
+                </button>
               </div>
             </div>
 
@@ -453,6 +466,49 @@ export default function CarProfilePage() {
           </button>
         </div>
       )}
+      {/* Delete confirmation */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowDeleteConfirm(false)} />
+          <div className="relative bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">
+            <Trash2 className="w-10 h-10 text-red-400 mx-auto mb-3" />
+            <h3 className="text-lg font-bold text-text mb-2">Удалить автомобиль?</h3>
+            <p className="text-sm text-text-muted mb-5">
+              {car.make} {car.model} ({car.year}) будет удалён вместе с записями ТО и напоминаниями. Это действие нельзя отменить.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setShowDeleteConfirm(false)} className="btn-secondary flex-1 justify-center text-sm !py-2.5">
+                Отмена
+              </button>
+              <button
+                onClick={async () => {
+                  setDeleting(true);
+                  await fetch(`/api/cars/${car.id}`, { method: "DELETE" });
+                  router.push("/garage");
+                }}
+                disabled={deleting}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                Удалить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit car modal */}
+      {showEditCar && (
+        <EditCarModal
+          car={car}
+          onClose={() => setShowEditCar(false)}
+          onSaved={() => {
+            setShowEditCar(false);
+            fetchCar();
+          }}
+        />
+      )}
+
       {showAddMaintenance && (
         <AddMaintenanceModal
           carId={car.id}
@@ -611,6 +667,149 @@ function AddMaintenanceModal({
               <span className="flex items-center gap-2">
                 <Plus className="w-4 h-4" />
                 Добавить запись
+              </span>
+            )}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function EditCarModal({
+  car,
+  onClose,
+  onSaved,
+}: {
+  car: CarData;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({
+    mileage: car.mileage,
+    color: car.color,
+    engine: car.engine,
+    transmission: car.transmission,
+    fuelType: car.fuelType,
+    licensePlate: car.licensePlate,
+    nextService: car.nextService,
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const update = (field: string, value: string | number) => {
+    setForm((p) => ({ ...p, [field]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      const res = await fetch(`/api/cars/${car.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          mileage: Number(form.mileage),
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || "Ошибка при сохранении");
+        setLoading(false);
+        return;
+      }
+
+      onSaved();
+    } catch {
+      setError("Ошибка сети");
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl">
+        <div className="sticky top-0 bg-[var(--bg-card)] flex items-center justify-between p-5 border-b border-[var(--border)] z-10">
+          <h2 className="text-lg font-bold text-text">Редактировать {car.make} {car.model}</h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--hover-bg)] transition-colors">
+            <X className="w-5 h-5 text-text-muted" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          {error && (
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/5 border border-red-500/15">
+              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+              <span className="text-sm text-red-400">{error}</span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Пробег (км)</label>
+              <input type="number" value={form.mileage} onChange={(e) => update("mileage", e.target.value)} className="input-field text-sm" min={0} />
+            </div>
+            <div>
+              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Госномер</label>
+              <input type="text" value={form.licensePlate} onChange={(e) => update("licensePlate", e.target.value.toUpperCase())} className="input-field text-sm" />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Цвет</label>
+            <input type="text" value={form.color} onChange={(e) => update("color", e.target.value)} className="input-field text-sm" />
+          </div>
+
+          <div>
+            <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Двигатель</label>
+            <input type="text" value={form.engine} onChange={(e) => update("engine", e.target.value)} className="input-field text-sm" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">КПП</label>
+              <select value={form.transmission} onChange={(e) => update("transmission", e.target.value)} className="input-field text-sm">
+                <option>Автомат</option>
+                <option>Механика</option>
+                <option>Робот</option>
+                <option>Вариатор</option>
+                {!["Автомат", "Механика", "Робот", "Вариатор"].includes(form.transmission) && (
+                  <option>{form.transmission}</option>
+                )}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Топливо</label>
+              <select value={form.fuelType} onChange={(e) => update("fuelType", e.target.value)} className="input-field text-sm">
+                <option>Бензин</option>
+                <option>Дизель</option>
+                <option>Гибрид</option>
+                <option>Электро</option>
+                <option>Газ</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Следующее ТО</label>
+            <input type="text" value={form.nextService} onChange={(e) => update("nextService", e.target.value)} className="input-field text-sm" placeholder="через 5 000 км" />
+          </div>
+
+          <button type="submit" disabled={loading} className="btn-primary w-full justify-center text-sm !py-3 disabled:opacity-50 disabled:cursor-not-allowed">
+            {loading ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Сохраняем...
+              </span>
+            ) : (
+              <span className="flex items-center gap-2">
+                <Pencil className="w-4 h-4" />
+                Сохранить изменения
               </span>
             )}
           </button>

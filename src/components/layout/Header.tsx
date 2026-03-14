@@ -4,8 +4,18 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { Bell, Car, ChevronDown, Menu, User, X, LogOut, Settings, LayoutDashboard, Sun, Moon, Building2 } from "lucide-react";
+import { Bell, Car, ChevronDown, Menu, User, X, LogOut, Settings, LayoutDashboard, Sun, Moon, Building2, AlertTriangle, Clock, CalendarCheck, CheckCircle2 } from "lucide-react";
 import { useTheme } from "@/components/providers/ThemeProvider";
+
+interface Notification {
+  id: string;
+  type: "reminder" | "booking" | "maintenance";
+  title: string;
+  description: string;
+  urgency: "low" | "medium" | "high";
+  date: string;
+  read: boolean;
+}
 
 const navItems = [
   { href: "/dashboard", label: "Дашборд" },
@@ -20,14 +30,34 @@ export default function Header() {
   const { data: session, status } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
   const { theme, toggleTheme } = useTheme();
 
-  // Close user menu on outside click
+  // Fetch notifications
+  useEffect(() => {
+    if (status === "authenticated") {
+      fetch("/api/notifications")
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.notifications) setNotifications(data.notifications);
+          if (typeof data.unreadCount === "number") setUnreadCount(data.unreadCount);
+        })
+        .catch(() => {});
+    }
+  }, [status]);
+
+  // Close dropdowns on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setUserMenuOpen(false);
+      }
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClick);
@@ -90,10 +120,81 @@ export default function Header() {
             {isAuth ? (
               <>
                 {/* Notifications */}
-                <button className="relative p-2 rounded-lg hover:bg-[var(--hover-bg)] transition-colors">
-                  <Bell className="w-5 h-5 text-[var(--text-muted)]" />
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-accent rounded-full" />
-                </button>
+                <div className="relative" ref={notifRef}>
+                  <button
+                    onClick={() => {
+                      setNotifOpen(!notifOpen);
+                      setUserMenuOpen(false);
+                    }}
+                    className="relative p-2 rounded-lg hover:bg-[var(--hover-bg)] transition-colors"
+                  >
+                    <Bell className="w-5 h-5 text-[var(--text-muted)]" />
+                    {unreadCount > 0 && (
+                      <span className="absolute top-1 right-1 min-w-[16px] h-4 flex items-center justify-center bg-accent text-white text-[10px] font-bold rounded-full px-1">
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </span>
+                    )}
+                  </button>
+
+                  {notifOpen && (
+                    <div className="absolute right-0 mt-2 w-80 bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] shadow-lg z-50 overflow-hidden">
+                      <div className="px-4 py-3 border-b border-[var(--divider)] flex items-center justify-between">
+                        <span className="text-sm font-semibold text-[var(--text)]">Уведомления</span>
+                        {unreadCount > 0 && (
+                          <span className="text-xs bg-accent/15 text-accent px-2 py-0.5 rounded-full font-medium">
+                            {unreadCount} новых
+                          </span>
+                        )}
+                      </div>
+                      <div className="max-h-80 overflow-y-auto">
+                        {notifications.length === 0 ? (
+                          <div className="px-4 py-8 text-center text-sm text-[var(--text-muted)]">
+                            Нет уведомлений
+                          </div>
+                        ) : (
+                          notifications.map((n) => {
+                            const NotifIcon =
+                              n.type === "reminder"
+                                ? n.urgency === "high" ? AlertTriangle : Clock
+                                : n.type === "booking"
+                                ? CalendarCheck
+                                : CheckCircle2;
+                            const iconColor =
+                              n.urgency === "high"
+                                ? "text-red-400"
+                                : n.urgency === "medium"
+                                ? "text-accent"
+                                : "text-[var(--text-muted)]";
+                            return (
+                              <div
+                                key={n.id}
+                                className={`px-4 py-3 border-b border-[var(--divider)] last:border-b-0 hover:bg-[var(--hover-bg)] transition-colors ${
+                                  !n.read ? "bg-brand/[0.03]" : ""
+                                }`}
+                              >
+                                <div className="flex gap-3">
+                                  <div className={`mt-0.5 flex-shrink-0 ${iconColor}`}>
+                                    <NotifIcon className="w-4 h-4" />
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-medium text-[var(--text)] truncate">{n.title}</p>
+                                    <p className="text-xs text-[var(--text-muted)] mt-0.5 line-clamp-2">{n.description}</p>
+                                    <p className="text-[10px] text-[var(--text-dim)] mt-1">
+                                      {new Date(n.date).toLocaleDateString("ru", { day: "numeric", month: "short" })}
+                                    </p>
+                                  </div>
+                                  {!n.read && (
+                                    <div className="w-2 h-2 bg-brand rounded-full flex-shrink-0 mt-1.5" />
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 {/* User dropdown */}
                 <div className="relative" ref={userMenuRef}>

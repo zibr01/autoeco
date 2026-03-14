@@ -43,7 +43,10 @@ interface ReminderData {
 
 interface MaintenanceData {
   id: string;
+  date: string;
+  type: string;
   cost: number;
+  serviceName: string;
 }
 
 interface CarData {
@@ -96,12 +99,16 @@ const quickActions = [
   { href: "/parts", icon: <ShoppingBag className="w-5 h-5" />, label: "Запчасти", desc: "Поиск и подбор", color: "text-sky-500", bg: "bg-sky-500/10" },
 ];
 
-const recentActivity = [
-  { id: "a1", icon: <Calendar className="w-4 h-4 text-brand-light" />, text: "Запись на плановое ТО", detail: "BMW Сервис Центр — BMW 530i", time: "Сегодня" },
-  { id: "a2", icon: <Search className="w-4 h-4 text-sky-500" />, text: "Поиск запчастей", detail: "Тормозные колодки для Toyota Camry", time: "Вчера" },
-  { id: "a3", icon: <MessageSquare className="w-4 h-4 text-amber-500" />, text: "AI-диагностика", detail: "Вибрация руля на скорости — BMW 530i", time: "2 дня назад" },
-  { id: "a4", icon: <Star className="w-4 h-4 text-yellow-500" />, text: "Оставлен отзыв", detail: "АвтоТех Премиум — 5 звёзд", time: "5 дней назад" },
-];
+function formatTimeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  if (days < 0) return `через ${Math.abs(days)} дн.`;
+  if (days === 0) return "Сегодня";
+  if (days === 1) return "Вчера";
+  if (days < 7) return `${days} дн. назад`;
+  if (days < 30) return `${Math.floor(days / 7)} нед. назад`;
+  return `${Math.floor(days / 30)} мес. назад`;
+}
 
 export default function DashboardPage() {
   const { data: session, status: authStatus } = useSession();
@@ -402,17 +409,54 @@ export default function DashboardPage() {
           <div className="card-surface">
             <h2 className="font-semibold text-text mb-4">Последняя активность</h2>
             <div className="space-y-1">
-              {recentActivity.map((item, i) => (
-                <div key={item.id} className="flex items-start gap-3 py-3 relative">
-                  {i < recentActivity.length - 1 && <div className="absolute left-[11px] top-10 bottom-0 w-px bg-prussian/[0.06]" />}
-                  <div className="w-6 h-6 rounded-full bg-white border border-prussian/[0.08] flex items-center justify-center flex-shrink-0 z-10">{item.icon}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm text-text font-medium">{item.text}</div>
-                    <div className="text-xs text-text-muted truncate">{item.detail}</div>
-                    <div className="text-[10px] text-text-dim mt-0.5">{item.time}</div>
+              {(() => {
+                const activities: { id: string; icon: React.ReactNode; text: string; detail: string; time: string; sortDate: number }[] = [];
+
+                // Bookings as activity
+                bookingsData.forEach((b) => {
+                  activities.push({
+                    id: `b-${b.id}`,
+                    icon: <Calendar className="w-4 h-4 text-brand-light" />,
+                    text: `Запись: ${b.serviceType}`,
+                    detail: `${b.serviceCenter.name} — ${b.car.make} ${b.car.model}`,
+                    time: formatTimeAgo(b.date),
+                    sortDate: new Date(b.date).getTime(),
+                  });
+                });
+
+                // Maintenance records as activity
+                carsData.forEach((car) => {
+                  car.maintenanceRecords.forEach((m) => {
+                    activities.push({
+                      id: `m-${m.id}`,
+                      icon: <Wrench className="w-4 h-4 text-emerald-500" />,
+                      text: m.type,
+                      detail: `${m.serviceName} — ${car.make} ${car.model} · ${m.cost.toLocaleString("ru")} ₽`,
+                      time: formatTimeAgo(m.date),
+                      sortDate: new Date(m.date).getTime(),
+                    });
+                  });
+                });
+
+                activities.sort((a, b) => b.sortDate - a.sortDate);
+                const items = activities.slice(0, 5);
+
+                if (items.length === 0) {
+                  return <p className="text-center py-6 text-text-muted text-sm">Пока нет активности</p>;
+                }
+
+                return items.map((item, i) => (
+                  <div key={item.id} className="flex items-start gap-3 py-3 relative">
+                    {i < items.length - 1 && <div className="absolute left-[11px] top-10 bottom-0 w-px bg-prussian/[0.06]" />}
+                    <div className="w-6 h-6 rounded-full bg-white border border-prussian/[0.08] flex items-center justify-center flex-shrink-0 z-10">{item.icon}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-text font-medium">{item.text}</div>
+                      <div className="text-xs text-text-muted truncate">{item.detail}</div>
+                      <div className="text-[10px] text-text-dim mt-0.5">{item.time}</div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ));
+              })()}
             </div>
           </div>
 
