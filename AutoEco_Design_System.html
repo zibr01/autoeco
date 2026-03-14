@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoEco — Дизайн-система</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #F8F8FF;
+    color: #0D2334;
+    line-height: 1.6;
+  }
+
+  .page { max-width: 1200px; margin: 0 auto; padding: 60px 40px; }
+
+  /* Header */
+  .doc-header {
+    text-align: center;
+    margin-bottom: 80px;
+    padding: 60px 40px;
+    background: linear-gradient(135deg, #5932E6 0%, #7B5CF0 100%);
+    border-radius: 24px;
+    color: white;
+  }
+  .doc-header h1 { font-size: 42px; font-weight: 800; margin-bottom: 8px; letter-spacing: -0.5px; }
+  .doc-header p { font-size: 18px; opacity: 0.85; }
+  .doc-header .version { margin-top: 16px; font-size: 13px; opacity: 0.6; }
+
+  /* Sections */
+  .section { margin-bottom: 64px; }
+  .section-title {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: #0D2334;
+    letter-spacing: -0.3px;
+  }
+  .section-desc {
+    font-size: 15px;
+    color: #5A6B7B;
+    margin-bottom: 32px;
+  }
+  .subsection { margin-bottom: 40px; }
+  .subsection-title {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: #0D2334;
+  }
+
+  /* Color swatches */
+  .color-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 20px;
+  }
+  .color-card {
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid rgba(13, 35, 52, 0.06);
+    box-shadow: 0 2px 8px rgba(13, 35, 52, 0.04);
+  }
+  .color-swatch {
+    height: 120px;
+    display: flex;
+    align-items: flex-end;
+    padding: 12px 16px;
+  }
+  .color-swatch span {
+    font-size: 12px;
+    font-weight: 600;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.9);
+    color: #0D2334;
+  }
+  .color-info { padding: 16px; }
+  .color-name { font-weight: 600; font-size: 15px; margin-bottom: 2px; }
+  .color-role { font-size: 13px; color: #5A6B7B; margin-bottom: 8px; }
+  .color-values { font-size: 12px; color: #8A97A4; font-family: 'SF Mono', 'Fira Code', monospace; }
+
+  /* Typography */
+  .type-sample {
+    background: white;
+    border-radius: 16px;
+    padding: 32px;
+    margin-bottom: 16px;
+    border: 1px solid rgba(13, 35, 52, 0.06);
+  }
+  .type-label {
+    font-size: 12px;
+    color: #8A97A4;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+  .type-meta {
+    font-size: 13px;
+    color: #5A6B7B;
+    margin-top: 8px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+
+  /* Components */
+  .component-card {
+    background: white;
+    border-radius: 16px;
+    padding: 32px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(13, 35, 52, 0.06);
+    box-shadow: 0 2px 8px rgba(13, 35, 52, 0.04);
+  }
+  .component-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #5932E6;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+  }
+  .component-variants {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+  }
+
+  /* Inline components demo */
+  .demo-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #5932E6, #7B5CF0);
+    color: white;
+    border: none;
+    border-radius: 14px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(89, 50, 230, 0.3);
+  }
+  .demo-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    background: rgba(89, 50, 230, 0.08);
+    color: #5932E6;
+    border: 1px solid rgba(89, 50, 230, 0.15);
+    border-radius: 14px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .demo-btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    background: transparent;
+    color: #0D2334;
+    border: 1px solid rgba(13, 35, 52, 0.1);
+    border-radius: 14px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .demo-btn-danger {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    background: transparent;
+    color: #EF4444;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 14px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .demo-input {
+    width: 100%;
+    max-width: 360px;
+    padding: 12px 16px;
+    background: white;
+    border: 1px solid rgba(13, 35, 52, 0.08);
+    border-radius: 14px;
+    font-size: 14px;
+    color: #0D2334;
+    outline: none;
+  }
+  .demo-input:focus {
+    border-color: rgba(89, 50, 230, 0.4);
+    box-shadow: 0 0 0 3px rgba(89, 50, 230, 0.08);
+  }
+  .demo-input::placeholder { color: #8A97A4; }
+
+  .demo-card {
+    background: white;
+    border: 1px solid rgba(13, 35, 52, 0.06);
+    border-radius: 20px;
+    padding: 24px;
+    box-shadow: 0 2px 12px rgba(13, 35, 52, 0.04);
+    max-width: 360px;
+  }
+
+  .demo-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid;
+  }
+  .tag-brand { color: #5932E6; background: rgba(89,50,230,0.08); border-color: rgba(89,50,230,0.15); }
+  .tag-success { color: #10B981; background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.15); }
+  .tag-warning { color: #F59E0B; background: rgba(245,158,11,0.08); border-color: rgba(245,158,11,0.15); }
+  .tag-danger { color: #EF4444; background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.15); }
+  .tag-neutral { color: #5A6B7B; background: rgba(13,35,52,0.03); border-color: rgba(13,35,52,0.08); }
+
+  /* Spacing & Radius */
+  .spec-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 16px;
+  }
+  .spec-item {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    border: 1px solid rgba(13, 35, 52, 0.06);
+  }
+  .spec-visual {
+    margin: 0 auto 12px;
+  }
+  .spec-label { font-size: 13px; font-weight: 600; color: #0D2334; }
+  .spec-value { font-size: 12px; color: #8A97A4; font-family: 'SF Mono', 'Fira Code', monospace; margin-top: 2px; }
+
+  /* Shadows */
+  .shadow-demo {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 24px;
+  }
+  .shadow-item {
+    background: white;
+    border-radius: 20px;
+    padding: 32px 24px;
+    text-align: center;
+    border: 1px solid rgba(13, 35, 52, 0.04);
+  }
+  .shadow-sm { box-shadow: 0 1px 4px rgba(13, 35, 52, 0.06); }
+  .shadow-md { box-shadow: 0 2px 12px rgba(13, 35, 52, 0.06); }
+  .shadow-lg { box-shadow: 0 8px 32px rgba(13, 35, 52, 0.08); }
+  .shadow-brand { box-shadow: 0 4px 16px rgba(89, 50, 230, 0.25); }
+
+  /* Icon grid */
+  .icon-note {
+    background: rgba(89, 50, 230, 0.06);
+    border: 1px solid rgba(89, 50, 230, 0.12);
+    border-radius: 14px;
+    padding: 20px 24px;
+    font-size: 14px;
+    color: #5A6B7B;
+  }
+  .icon-note strong { color: #5932E6; }
+
+  /* Divider */
+  .divider {
+    height: 1px;
+    background: rgba(13, 35, 52, 0.06);
+    margin: 64px 0;
+  }
+
+  /* Layout specs */
+  .layout-spec {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    border: 1px solid rgba(13, 35, 52, 0.06);
+    margin-bottom: 16px;
+  }
+  .layout-spec-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(13, 35, 52, 0.04);
+  }
+  .layout-spec-row:last-child { border-bottom: none; }
+  .layout-spec-key { font-size: 14px; color: #0D2334; font-weight: 500; }
+  .layout-spec-val { font-size: 13px; color: #5A6B7B; font-family: 'SF Mono', 'Fira Code', monospace; }
+
+  /* Footer */
+  .doc-footer {
+    text-align: center;
+    padding: 40px;
+    color: #8A97A4;
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="doc-header">
+    <h1>AutoEco</h1>
+    <p>Дизайн-система · Руководство по фирменному стилю</p>
+    <div class="version">Версия 1.0 · Март 2026</div>
+  </div>
+
+  <!-- ===== 1. ЦВЕТОВАЯ ПАЛИТРА ===== -->
+  <div class="section">
+    <h2 class="section-title">1. Цветовая палитра</h2>
+    <p class="section-desc">Основные цвета бренда и их применение в интерфейсе</p>
+
+    <div class="subsection">
+      <h3 class="subsection-title">Основные цвета</h3>
+      <div class="color-grid">
+        <div class="color-card">
+          <div class="color-swatch" style="background: #5932E6;"><span>#5932E6</span></div>
+          <div class="color-info">
+            <div class="color-name">Han Purple</div>
+            <div class="color-role">Brand Primary — кнопки, акценты, ссылки</div>
+            <div class="color-values">RGB 89, 50, 230 · HSL 253°, 78%, 55%</div>
+          </div>
+        </div>
+        <div class="color-card">
+          <div class="color-swatch" style="background: #0D2334;"><span style="color: #0D2334;">#0D2334</span></div>
+          <div class="color-info">
+            <div class="color-name">Prussian Blue</div>
+            <div class="color-role">Text Primary — заголовки, основной текст</div>
+            <div class="color-values">RGB 13, 35, 52 · HSL 206°, 60%, 13%</div>
+          </div>
+        </div>
+        <div class="color-card">
+          <div class="color-swatch" style="background: #F8F8FF; border: 1px solid rgba(13,35,52,0.08);"><span>#F8F8FF</span></div>
+          <div class="color-info">
+            <div class="color-name">Ghost White</div>
+            <div class="color-role">Background — основной фон приложения</div>
+            <div class="color-values">RGB 248, 248, 255 · HSL 240°, 100%, 99%</div>
+          </div>
+        </div>
+        <div class="color-card">
+          <div class="color-swatch" style="background: #FFA51F;"><span>#FFA51F</span></div>
+          <div class="color-info">
+            <div class="color-name">Orange Peel</div>
+            <div class="color-role">Accent — предупреждения, важные элементы</div>
+            <div class="color-values">RGB 255, 165, 31 · HSL 36°, 100%, 56%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">Расширенная палитра Brand</h3>
+      <div class="color-grid">
+        <div class="color-card">
+          <div class="color-swatch" style="background: #7B5CF0;"><span>#7B5CF0</span></div>
+          <div class="color-info">
+            <div class="color-name">Brand Light</div>
+            <div class="color-role">Ховеры, активные элементы</div>
+          </div>
+        </div>
+        <div class="color-card">
+          <div class="color-swatch" style="background: #4525B8;"><span>#4525B8</span></div>
+          <div class="color-info">
+            <div class="color-name">Brand Dark</div>
+            <div class="color-role">Pressed-состояния</div>
+          </div>
+        </div>
+        <div class="color-card">
+          <div class="color-swatch" style="background: rgba(89,50,230,0.08); border: 1px solid rgba(89,50,230,0.15);"><span>#5932E6 / 8%</span></div>
+          <div class="color-info">
+            <div class="color-name">Brand / 8%</div>
+            <div class="color-role">Фон вторичных кнопок, тегов</div>
+          </div>
+        </div>
+        <div class="color-card">
+          <div class="color-swatch" style="background: rgba(89,50,230,0.04); border: 1px solid rgba(89,50,230,0.08);"><span>#5932E6 / 4%</span></div>
+          <div class="color-info">
+            <div class="color-name">Brand / 4%</div>
+            <div class="color-role">Тонкий ховер-эффект</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">Текст и фон</h3>
+      <div class="color-grid">
+        <div class="color-card">
+          <div class="color-swatch" style="background: #0D2334;"><span style="color:#0D2334">#0D2334</span></div>
+          <div class="color-info">
+            <div class="color-name">Text Default</div>
+            <div class="color-role">Заголовки, основной текст</div>
+          </div>
+        </div>
+        <div class="color-card">
+          <div class="color-swatch" style="background: #5A6B7B;"><span>#5A6B7B</span></div>
+          <div class="color-info">
+            <div class="color-name">Text Muted</div>
+            <div class="color-role">Описания, вторичный текст</div>
+          </div>
+        </div>
+        <div class="color-card">
+          <div class="color-swatch" style="background: #8A97A4;"><span>#8A97A4</span></div>
+          <div class="color-info">
+            <div class="color-name">Text Dim</div>
+            <div class="color-role">Плейсхолдеры, неактивные элементы</div>
+          </div>
+        </div>
+        <div class="color-card">
+          <div class="color-swatch" style="background: #FFFFFF; border: 1px solid rgba(13,35,52,0.08);"><span>#FFFFFF</span></div>
+          <div class="color-info">
+            <div class="color-name">Surface / Card</div>
+            <div class="color-role">Карточки, поверхности</div>
+          </div>
+        </div>
+        <div class="color-card">
+          <div class="color-swatch" style="background: #F3F3FB; border: 1px solid rgba(13,35,52,0.06);"><span>#F3F3FB</span></div>
+          <div class="color-info">
+            <div class="color-name">Elevated</div>
+            <div class="color-role">Вложенные блоки, вторичные поверхности</div>
+          </div>
+        </div>
+        <div class="color-card">
+          <div class="color-swatch" style="background: #F0F0FA; border: 1px solid rgba(13,35,52,0.06);"><span>#F0F0FA</span></div>
+          <div class="color-info">
+            <div class="color-name">Background Deep</div>
+            <div class="color-role">Секции с чуть большей глубиной</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <h3 class="subsection-title">Семантические цвета</h3>
+      <div class="color-grid">
+        <div class="color-card">
+          <div class="color-swatch" style="background: #10B981;"><span>#10B981</span></div>
+          <div class="color-info">
+            <div class="color-name">Success / Emerald</div>
+            <div class="color-role">Успех, здоровье, подтверждение</div>
+          </div>
+        </div>
+        <div class="color-card">
+          <div class="color-swatch" style="background: #F59E0B;"><span>#F59E0B</span></div>
+          <div class="color-info">
+            <div class="color-name">Warning / Amber</div>
+            <div class="color-role">Предупреждения, ожидание</div>
+          </div>
+        </div>
+        <div class="color-card">
+          <div class="color-swatch" style="background: #EF4444;"><span>#EF4444</span></div>
+          <div class="color-info">
+            <div class="color-name">Danger / Red</div>
+            <div class="color-role">Ошибки, удаление, критичное</div>
+          </div>
+        </div>
+        <div class="color-card">
+          <div class="color-swatch" style="background: #0EA5E9;"><span>#0EA5E9</span></div>
+          <div class="color-info">
+            <div class="color-name">Info / Sky</div>
+            <div class="color-role">Информационные уведомления</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ===== 2. ТИПОГРАФИКА ===== -->
+  <div class="section">
+    <h2 class="section-title">2. Типографика</h2>
+    <p class="section-desc">Основной шрифт — TT Neoris Trial. Fallback — Inter (Google Fonts). Все размеры в rem.</p>
+
+    <div class="type-sample">
+      <div class="type-label">H1 — Заголовок страницы</div>
+      <div style="font-size: 36px; font-weight: 800; color: #0D2334; letter-spacing: -0.5px;">Экосистема для автовладельца</div>
+      <div class="type-meta">36px / 800 / letter-spacing: -0.5px / line-height: 1.2</div>
+    </div>
+
+    <div class="type-sample">
+      <div class="type-label">H2 — Заголовок секции</div>
+      <div style="font-size: 28px; font-weight: 700; color: #0D2334; letter-spacing: -0.3px;">Мои автомобили</div>
+      <div class="type-meta">28px / 700 / letter-spacing: -0.3px / line-height: 1.3</div>
+    </div>
+
+    <div class="type-sample">
+      <div class="type-label">H3 — Подзаголовок карточки</div>
+      <div style="font-size: 18px; font-weight: 600; color: #0D2334;">Плановое ТО</div>
+      <div class="type-meta">18px / 600 / line-height: 1.4</div>
+    </div>
+
+    <div class="type-sample">
+      <div class="type-label">Body — Основной текст</div>
+      <div style="font-size: 15px; font-weight: 400; color: #0D2334; max-width: 600px;">
+        Автоматический подбор запчастей по VIN, агрегация цен от проверенных продавцов и запись на сервис в пару кликов.
+      </div>
+      <div class="type-meta">15px / 400 / line-height: 1.6 / color: text-default</div>
+    </div>
+
+    <div class="type-sample">
+      <div class="type-label">Body Muted — Вторичный текст</div>
+      <div style="font-size: 14px; font-weight: 400; color: #5A6B7B; max-width: 600px;">
+        Управляйте профилем, автомобилями и записями на техническое обслуживание.
+      </div>
+      <div class="type-meta">14px / 400 / line-height: 1.5 / color: text-muted #5A6B7B</div>
+    </div>
+
+    <div class="type-sample">
+      <div class="type-label">Caption / Label</div>
+      <div style="font-size: 12px; font-weight: 600; color: #8A97A4; text-transform: uppercase; letter-spacing: 1px;">Категория</div>
+      <div class="type-meta">12px / 600 / uppercase / letter-spacing: 1px / color: text-dim #8A97A4</div>
+    </div>
+
+    <div class="type-sample">
+      <div class="type-label">Gradient Text — Brand Accent</div>
+      <div style="font-size: 36px; font-weight: 800; background: linear-gradient(135deg, #5932E6, #7B5CF0); -webkit-background-clip: text; -webkit-text-fill-color: transparent; display: inline-block;">AutoEco</div>
+      <div class="type-meta">gradient: #5932E6 → #7B5CF0 / 135deg / -webkit-background-clip: text</div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ===== 3. КОМПОНЕНТЫ ===== -->
+  <div class="section">
+    <h2 class="section-title">3. Компоненты</h2>
+    <p class="section-desc">Базовые UI-элементы с состояниями</p>
+
+    <!-- Buttons -->
+    <div class="component-card">
+      <div class="component-name">Кнопки</div>
+      <div class="component-variants">
+        <button class="demo-btn-primary">Primary</button>
+        <button class="demo-btn-secondary">Secondary</button>
+        <button class="demo-btn-ghost">Ghost</button>
+        <button class="demo-btn-danger">Danger</button>
+      </div>
+      <div style="margin-top: 20px;">
+        <table style="font-size: 13px; color: #5A6B7B; border-collapse: collapse; width: 100%;">
+          <tr style="border-bottom: 1px solid rgba(13,35,52,0.06);">
+            <td style="padding: 8px 0; font-weight: 600; color: #0D2334;">Primary</td>
+            <td style="padding: 8px 12px;">gradient(135deg, #5932E6, #7B5CF0)</td>
+            <td style="padding: 8px 0;">shadow: 0 4px 16px rgba(89,50,230,0.3)</td>
+          </tr>
+          <tr style="border-bottom: 1px solid rgba(13,35,52,0.06);">
+            <td style="padding: 8px 0; font-weight: 600; color: #0D2334;">Secondary</td>
+            <td style="padding: 8px 12px;">bg: brand/8%, border: brand/15%</td>
+            <td style="padding: 8px 0;">color: #5932E6</td>
+          </tr>
+          <tr style="border-bottom: 1px solid rgba(13,35,52,0.06);">
+            <td style="padding: 8px 0; font-weight: 600; color: #0D2334;">Ghost</td>
+            <td style="padding: 8px 12px;">bg: transparent, border: prussian/10%</td>
+            <td style="padding: 8px 0;">color: #0D2334</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; font-weight: 600; color: #0D2334;">Danger</td>
+            <td style="padding: 8px 12px;">bg: transparent, border: red/20%</td>
+            <td style="padding: 8px 0;">color: #EF4444</td>
+          </tr>
+        </table>
+      </div>
+      <div style="margin-top: 12px; font-size: 13px; color: #8A97A4;">
+        Padding: 12px 24px · Border-radius: 14px · Font: 14px/600
+      </div>
+    </div>
+
+    <!-- Inputs -->
+    <div class="component-card">
+      <div class="component-name">Поля ввода</div>
+      <div style="display: flex; flex-direction: column; gap: 12px; max-width: 400px;">
+        <div>
+          <div style="font-size: 12px; color: #8A97A4; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Label</div>
+          <input class="demo-input" placeholder="Placeholder text..." />
+        </div>
+        <div>
+          <div style="font-size: 12px; color: #8A97A4; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Заполненное</div>
+          <input class="demo-input" value="kirill@example.com" />
+        </div>
+      </div>
+      <div style="margin-top: 16px; font-size: 13px; color: #8A97A4;">
+        Background: #FFFFFF · Border: prussian/8% · Focus: brand/40% + ring brand/8% · Radius: 14px · Padding: 12px 16px
+      </div>
+    </div>
+
+    <!-- Cards -->
+    <div class="component-card">
+      <div class="component-name">Карточки</div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div class="demo-card">
+          <div style="font-size: 15px; font-weight: 600; color: #0D2334; margin-bottom: 4px;">Card Surface</div>
+          <div style="font-size: 13px; color: #5A6B7B;">Основная карточка контента. Белый фон, тонкая граница, лёгкая тень.</div>
+        </div>
+        <div class="demo-card" style="border-color: rgba(89,50,230,0.15);">
+          <div style="font-size: 15px; font-weight: 600; color: #0D2334; margin-bottom: 4px;">Card Highlighted</div>
+          <div style="font-size: 13px; color: #5A6B7B;">Акцентная карточка. Граница brand/15% для выделения.</div>
+        </div>
+      </div>
+      <div style="margin-top: 16px; font-size: 13px; color: #8A97A4;">
+        Background: #FFFFFF · Border: prussian/6% · Shadow: 0 2px 12px prussian/4% · Radius: 20px · Padding: 24px
+      </div>
+    </div>
+
+    <!-- Tags -->
+    <div class="component-card">
+      <div class="component-name">Теги / Badges</div>
+      <div class="component-variants">
+        <span class="demo-tag tag-brand">Brand</span>
+        <span class="demo-tag tag-success">Подтверждено</span>
+        <span class="demo-tag tag-warning">Ожидает</span>
+        <span class="demo-tag tag-danger">Критично</span>
+        <span class="demo-tag tag-neutral">Завершено</span>
+      </div>
+      <div style="margin-top: 16px; font-size: 13px; color: #8A97A4;">
+        Padding: 4px 12px · Radius: 20px (pill) · Font: 12px/500 · Border: 1px solid color/15%
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="component-card">
+      <div class="component-name">Навигация (Header)</div>
+      <div style="background: rgba(255,255,255,0.92); backdrop-filter: blur(20px); border: 1px solid rgba(13,35,52,0.06); border-radius: 16px; padding: 12px 20px; display: flex; align-items: center; gap: 24px;">
+        <div style="width: 36px; height: 36px; background: #0D2334; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+          <span style="color: white; font-weight: 700; font-size: 14px;">A</span>
+        </div>
+        <div style="display: flex; gap: 4px;">
+          <span style="padding: 8px 16px; border-radius: 10px; font-size: 13px; font-weight: 500; color: #5932E6; background: rgba(89,50,230,0.06);">Гараж</span>
+          <span style="padding: 8px 16px; border-radius: 10px; font-size: 13px; font-weight: 500; color: #5A6B7B;">Сервисы</span>
+          <span style="padding: 8px 16px; border-radius: 10px; font-size: 13px; font-weight: 500; color: #5A6B7B;">Запчасти</span>
+          <span style="padding: 8px 16px; border-radius: 10px; font-size: 13px; font-weight: 500; color: #5A6B7B;">AI-Диагностика</span>
+        </div>
+      </div>
+      <div style="margin-top: 16px; font-size: 13px; color: #8A97A4;">
+        Header bg: white/92% + blur(20px) · Logo: 36×36, bg: prussian, radius: 10px<br>
+        Active nav: text brand, bg brand/6% · Hover: text prussian, bg prussian/4%
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ===== 4. СКРУГЛЕНИЯ ===== -->
+  <div class="section">
+    <h2 class="section-title">4. Border Radius</h2>
+    <p class="section-desc">Система скруглений — от мелких элементов до крупных карточек</p>
+
+    <div class="spec-grid">
+      <div class="spec-item">
+        <div class="spec-visual" style="width: 60px; height: 60px; background: rgba(89,50,230,0.1); border-radius: 8px; border: 2px solid #5932E6; margin: 0 auto 12px;"></div>
+        <div class="spec-label">Small</div>
+        <div class="spec-value">8px</div>
+        <div style="font-size: 11px; color: #8A97A4; margin-top: 4px;">Иконки, мини-элементы</div>
+      </div>
+      <div class="spec-item">
+        <div class="spec-visual" style="width: 60px; height: 60px; background: rgba(89,50,230,0.1); border-radius: 10px; border: 2px solid #5932E6; margin: 0 auto 12px;"></div>
+        <div class="spec-label">Medium</div>
+        <div class="spec-value">10px</div>
+        <div style="font-size: 11px; color: #8A97A4; margin-top: 4px;">Логотип, кнопки навигации</div>
+      </div>
+      <div class="spec-item">
+        <div class="spec-visual" style="width: 60px; height: 60px; background: rgba(89,50,230,0.1); border-radius: 14px; border: 2px solid #5932E6; margin: 0 auto 12px;"></div>
+        <div class="spec-label">Large</div>
+        <div class="spec-value">14px</div>
+        <div style="font-size: 11px; color: #8A97A4; margin-top: 4px;">Кнопки, инпуты</div>
+      </div>
+      <div class="spec-item">
+        <div class="spec-visual" style="width: 60px; height: 60px; background: rgba(89,50,230,0.1); border-radius: 20px; border: 2px solid #5932E6; margin: 0 auto 12px;"></div>
+        <div class="spec-label">XL</div>
+        <div class="spec-value">20px</div>
+        <div style="font-size: 11px; color: #8A97A4; margin-top: 4px;">Карточки, модальные окна</div>
+      </div>
+      <div class="spec-item">
+        <div class="spec-visual" style="width: 60px; height: 60px; background: rgba(89,50,230,0.1); border-radius: 24px; border: 2px solid #5932E6; margin: 0 auto 12px;"></div>
+        <div class="spec-label">2XL</div>
+        <div class="spec-value">24px</div>
+        <div style="font-size: 11px; color: #8A97A4; margin-top: 4px;">Большие секции, герой-блок</div>
+      </div>
+      <div class="spec-item">
+        <div class="spec-visual" style="width: 60px; height: 30px; background: rgba(89,50,230,0.1); border-radius: 9999px; border: 2px solid #5932E6; margin: 0 auto 12px;"></div>
+        <div class="spec-label">Pill</div>
+        <div class="spec-value">9999px</div>
+        <div style="font-size: 11px; color: #8A97A4; margin-top: 4px;">Теги, бейджи</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ===== 5. ТЕНИ ===== -->
+  <div class="section">
+    <h2 class="section-title">5. Тени</h2>
+    <p class="section-desc">Все тени используют prussian blue для естественного вида на светлом фоне</p>
+
+    <div class="shadow-demo">
+      <div class="shadow-item shadow-sm">
+        <div style="font-size: 14px; font-weight: 600; color: #0D2334;">SM</div>
+        <div style="font-size: 12px; color: #8A97A4; margin-top: 4px;">0 1px 4px</div>
+        <div style="font-size: 11px; color: #8A97A4;">prussian/6%</div>
+      </div>
+      <div class="shadow-item shadow-md">
+        <div style="font-size: 14px; font-weight: 600; color: #0D2334;">MD</div>
+        <div style="font-size: 12px; color: #8A97A4; margin-top: 4px;">0 2px 12px</div>
+        <div style="font-size: 11px; color: #8A97A4;">prussian/6%</div>
+      </div>
+      <div class="shadow-item shadow-lg">
+        <div style="font-size: 14px; font-weight: 600; color: #0D2334;">LG</div>
+        <div style="font-size: 12px; color: #8A97A4; margin-top: 4px;">0 8px 32px</div>
+        <div style="font-size: 11px; color: #8A97A4;">prussian/8%</div>
+      </div>
+      <div class="shadow-item shadow-brand">
+        <div style="font-size: 14px; font-weight: 600; color: #5932E6;">Brand</div>
+        <div style="font-size: 12px; color: #8A97A4; margin-top: 4px;">0 4px 16px</div>
+        <div style="font-size: 11px; color: #8A97A4;">brand/25%</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ===== 6. СЕТКА И ЛЕЙАУТ ===== -->
+  <div class="section">
+    <h2 class="section-title">6. Сетка и лейаут</h2>
+    <p class="section-desc">Основные параметры макета</p>
+
+    <div class="layout-spec">
+      <div class="layout-spec-row">
+        <span class="layout-spec-key">Максимальная ширина контента</span>
+        <span class="layout-spec-val">1280px (max-w-7xl)</span>
+      </div>
+      <div class="layout-spec-row">
+        <span class="layout-spec-key">Боковые отступы</span>
+        <span class="layout-spec-val">px-6 (24px)</span>
+      </div>
+      <div class="layout-spec-row">
+        <span class="layout-spec-key">Верхний отступ от хедера</span>
+        <span class="layout-spec-val">pt-24 (96px)</span>
+      </div>
+      <div class="layout-spec-row">
+        <span class="layout-spec-key">Нижний отступ</span>
+        <span class="layout-spec-val">pb-16 (64px)</span>
+      </div>
+      <div class="layout-spec-row">
+        <span class="layout-spec-key">Grid gap (карточки)</span>
+        <span class="layout-spec-val">gap-6 (24px)</span>
+      </div>
+      <div class="layout-spec-row">
+        <span class="layout-spec-key">Колонки (десктоп)</span>
+        <span class="layout-spec-val">grid-cols-3 или grid-cols-4</span>
+      </div>
+      <div class="layout-spec-row">
+        <span class="layout-spec-key">Хедер высота</span>
+        <span class="layout-spec-val">~64px, фиксированный</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ===== 7. ИКОНКИ ===== -->
+  <div class="section">
+    <h2 class="section-title">7. Иконки</h2>
+    <p class="section-desc">Библиотека иконок и правила использования</p>
+
+    <div class="icon-note">
+      Иконографика: <strong>Lucide Icons</strong> (stroke-based, 24×24 grid). В интерфейсе используются размеры:<br><br>
+      • <strong>w-3.5 h-3.5</strong> (14px) — внутри тегов, мелкие детали<br>
+      • <strong>w-4 h-4</strong> (16px) — навигация, кнопки, инлайновые иконки<br>
+      • <strong>w-5 h-5</strong> (20px) — карточки, заголовки секций<br>
+      • <strong>w-10 h-10</strong> (40px) — аватар, крупные плейсхолдеры<br>
+      • <strong>w-12 h-12</strong> (48px) — пустые состояния (empty state)<br><br>
+      Цвет иконок наследуется от текста (<code>currentColor</code>). Для акцентных иконок — <strong>text-brand-light</strong> (#7B5CF0).
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ===== 8. СТРАНИЦЫ ===== -->
+  <div class="section">
+    <h2 class="section-title">8. Структура страниц</h2>
+    <p class="section-desc">Карта экранов приложения</p>
+
+    <div class="layout-spec">
+      <div class="layout-spec-row">
+        <span class="layout-spec-key">/ — Лендинг</span>
+        <span class="layout-spec-val">Hero + Features + CTA</span>
+      </div>
+      <div class="layout-spec-row">
+        <span class="layout-spec-key">/garage — Гараж</span>
+        <span class="layout-spec-val">Список авто (карточки)</span>
+      </div>
+      <div class="layout-spec-row">
+        <span class="layout-spec-key">/garage/[id] — Авто</span>
+        <span class="layout-spec-val">Детальная страница с таймлайном</span>
+      </div>
+      <div class="layout-spec-row">
+        <span class="layout-spec-key">/services — Сервисы</span>
+        <span class="layout-spec-val">Каталог с фильтрами</span>
+      </div>
+      <div class="layout-spec-row">
+        <span class="layout-spec-key">/services/[id] — Сервис</span>
+        <span class="layout-spec-val">Карточка + бронирование</span>
+      </div>
+      <div class="layout-spec-row">
+        <span class="layout-spec-key">/parts — Запчасти</span>
+        <span class="layout-spec-val">Поиск по VIN + офферы</span>
+      </div>
+      <div class="layout-spec-row">
+        <span class="layout-spec-key">/diagnostics — AI</span>
+        <span class="layout-spec-val">Чат-интерфейс диагностики</span>
+      </div>
+      <div class="layout-spec-row">
+        <span class="layout-spec-key">/profile — Профиль</span>
+        <span class="layout-spec-val">Sidebar + табы (данные, авто, записи, настройки)</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ===== 9. ПРИНЦИПЫ ===== -->
+  <div class="section">
+    <h2 class="section-title">9. Принципы дизайна</h2>
+    <p class="section-desc">Руководящие принципы при создании новых экранов и компонентов</p>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+      <div class="demo-card">
+        <div style="font-size: 24px; margin-bottom: 8px;">🧊</div>
+        <div style="font-size: 15px; font-weight: 600; color: #0D2334; margin-bottom: 4px;">Light Glassmorphism</div>
+        <div style="font-size: 13px; color: #5A6B7B;">Полупрозрачные белые поверхности с blur. Хедер: white/92% + blur(20px). Чистый, воздушный интерфейс.</div>
+      </div>
+      <div class="demo-card">
+        <div style="font-size: 24px; margin-bottom: 8px;">🎯</div>
+        <div style="font-size: 15px; font-weight: 600; color: #0D2334; margin-bottom: 4px;">Минимальные границы</div>
+        <div style="font-size: 13px; color: #5A6B7B;">Границы — prussian/4-8%. Разделение через тени и пространство, не через жёсткие линии.</div>
+      </div>
+      <div class="demo-card">
+        <div style="font-size: 24px; margin-bottom: 8px;">💜</div>
+        <div style="font-size: 15px; font-weight: 600; color: #0D2334; margin-bottom: 4px;">Фиолетовый — фокус</div>
+        <div style="font-size: 13px; color: #5A6B7B;">Brand purple только для CTA и активных состояний. Не перенасыщать — использовать дозированно.</div>
+      </div>
+      <div class="demo-card">
+        <div style="font-size: 24px; margin-bottom: 8px;">📐</div>
+        <div style="font-size: 15px; font-weight: 600; color: #0D2334; margin-bottom: 4px;">Крупные скругления</div>
+        <div style="font-size: 13px; color: #5A6B7B;">Radius 14-24px для основных элементов. Мягкие формы, никаких острых углов в UI.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="doc-footer">
+    <div style="margin-bottom: 8px; font-weight: 600; color: #0D2334;">AutoEco Design System</div>
+    Документ создан для передачи в Figma · Март 2026
+  </div>
+
+</div>
+</body>
+</html>

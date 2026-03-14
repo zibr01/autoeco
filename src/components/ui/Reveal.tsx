@@ -1,0 +1,38 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+
+interface RevealProps {
+  children: React.ReactNode;
+  className?: string;
+  scale?: boolean;
+  delay?: number;
+}
+
+export default function Reveal({ children, className = "", scale, delay = 0 }: RevealProps) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setTimeout(() => el.classList.add("visible"), delay);
+          observer.unobserve(el);
+        }
+      },
+      { threshold: 0.15 }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [delay]);
+
+  return (
+    <div ref={ref} className={`${scale ? "reveal-scale" : "reveal"} ${className}`}>
+      {children}
+    </div>
+  );
+}
