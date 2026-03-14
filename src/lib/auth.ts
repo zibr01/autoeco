@@ -35,6 +35,7 @@ export const authOptions: NextAuthOptions = {
             name: user.name,
             email: user.email,
             image: user.image,
+            role: user.role,
           };
         } catch (error) {
           console.error("Auth error:", error);
@@ -50,12 +51,22 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.role = (user as unknown as Record<string, unknown>).role as string;
+      }
+      // Fallback: if role missing in token, fetch from DB
+      if (token.id && !token.role) {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { role: true },
+        });
+        if (dbUser) token.role = dbUser.role;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
+        session.user.role = token.role;
       }
       return session;
     },

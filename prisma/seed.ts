@@ -439,14 +439,70 @@ async function main() {
   }
 
   console.log(`✅ Тестовые аккаунты: 19 шт. (пароль: test123)`);
-  console.log("\n🎉 База данных заполнена! Всего 20 аккаунтов.");
+
+  // ─── Business Accounts (B2B) ───────────────────
+  // Link existing service centers to business owners
+
+  const businessPassword = await bcrypt.hash("business123", 12);
+
+  // Owner for АвтоТех Премиум (sc1)
+  const bizUser1 = await prisma.user.create({
+    data: {
+      name: "Виктор Автотехов",
+      email: "admin@autotech.ru",
+      passwordHash: businessPassword,
+      phone: "+7 (495) 555-01-01",
+      city: "Москва",
+      role: "BUSINESS",
+    },
+  });
+  await prisma.serviceCenter.update({
+    where: { id: sc1.id },
+    data: { ownerId: bizUser1.id },
+  });
+
+  // Owner for ШинМастер Pro (sc2)
+  const bizUser2 = await prisma.user.create({
+    data: {
+      name: "Ирина Шинмастерова",
+      email: "admin@shinmaster.ru",
+      passwordHash: businessPassword,
+      phone: "+7 (495) 555-02-02",
+      city: "Москва",
+      role: "BUSINESS",
+    },
+  });
+  await prisma.serviceCenter.update({
+    where: { id: sc2.id },
+    data: { ownerId: bizUser2.id },
+  });
+
+  // Owner for AquaShine (sc3)
+  const bizUser3 = await prisma.user.create({
+    data: {
+      name: "Олег Аквашайнов",
+      email: "admin@aquashine.ru",
+      passwordHash: businessPassword,
+      phone: "+7 (495) 555-03-03",
+      city: "Москва",
+      role: "BUSINESS",
+    },
+  });
+  await prisma.serviceCenter.update({
+    where: { id: sc3.id },
+    data: { ownerId: bizUser3.id },
+  });
+
+  console.log(`✅ B2B аккаунты: 3 шт. (пароль: business123)`);
+
+  console.log("\n🎉 База данных заполнена! Всего 23 аккаунта.");
   console.log("\n📋 Аккаунты:");
   console.log("  1. kirill@example.com / password123 (Premium, 3 авто)");
   console.log("  2-20. [имя]@autoeco.test / test123 (Free, 1 авто)");
-  console.log("\nПримеры тестовых:");
-  console.log("  alex@autoeco.test / test123");
-  console.log("  maria@autoeco.test / test123");
-  console.log("  dmitry@autoeco.test / test123");
+  console.log("\n🏢 B2B аккаунты:");
+  console.log("  admin@autotech.ru / business123 (АвтоТех Премиум)");
+  console.log("  admin@shinmaster.ru / business123 (ШинМастер Pro)");
+  console.log("  admin@aquashine.ru / business123 (AquaShine Детейлинг)");
 }
 
 main()

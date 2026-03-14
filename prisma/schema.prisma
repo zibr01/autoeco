@@ -17,15 +17,17 @@ model User {
   phone         String?
   city          String?
   image         String?
+  role          String    @default("USER") // USER | BUSINESS
   subscription  String    @default("FREE") // FREE | PREMIUM
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  cars     Car[]
-  bookings Booking[]
-  reviews  Review[]
-  accounts Account[]
-  sessions Session[]
+  cars           Car[]
+  bookings       Booking[]
+  reviews        Review[]
+  accounts       Account[]
+  sessions       Session[]
+  serviceCenters ServiceCenter[] @relation("ServiceCenterOwner")
 }
 
 model Account {
@@ -119,6 +121,7 @@ model Reminder {
 
 model ServiceCenter {
   id          String  @id @default(cuid())
+  ownerId     String?
   name        String
   type        String  // sto, wash, tires, detailing, master, electric
   typeName    String
@@ -138,6 +141,7 @@ model ServiceCenter {
   services    String  // JSON array stored as string
   photos      String  // JSON array stored as string
 
+  owner     User?       @relation("ServiceCenterOwner", fields: [ownerId], references: [id])
   priceList PriceItem[]
   reviews   Review[]
   timeSlots TimeSlot[]

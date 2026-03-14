@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { signIn, getSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Car, Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from "lucide-react";
@@ -30,7 +30,9 @@ export default function LoginPage() {
     if (result?.error) {
       setError("Неверный email или пароль");
     } else {
-      router.push("/dashboard");
+      const session = await getSession();
+      const dest = session?.user?.role === "BUSINESS" ? "/business" : "/dashboard";
+      router.push(dest);
       router.refresh();
     }
   };
@@ -142,11 +144,12 @@ export default function LoginPage() {
         </div>
 
         {/* Demo credentials */}
-        <div className="mt-4 p-3 rounded-xl bg-brand/5 border border-brand/10 text-center">
-          <p className="text-xs text-text-muted mb-1">Демо-аккаунт для тестирования:</p>
+        <div className="mt-4 p-3 rounded-xl bg-brand/5 border border-brand/10 text-center space-y-1.5">
+          <p className="text-xs text-text-muted">Демо-аккаунты для тестирования:</p>
           <p className="text-xs font-mono text-text">
             kirill@example.com / password123
           </p>
+          <p className="text-[10px] text-text-dim">B2B: admin@autotech.ru / business123</p>
         </div>
       </div>
     </div>

@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { Bell, Car, ChevronDown, Menu, User, X, LogOut, Settings, LayoutDashboard, Sun, Moon } from "lucide-react";
+import { Bell, Car, ChevronDown, Menu, User, X, LogOut, Settings, LayoutDashboard, Sun, Moon, Building2 } from "lucide-react";
 import { useTheme } from "@/components/providers/ThemeProvider";
 
 const navItems = [
@@ -125,6 +125,16 @@ export default function Header() {
                         <LayoutDashboard className="w-4 h-4" />
                         Дашборд
                       </Link>
+                      {session?.user?.role === "BUSINESS" && (
+                        <Link
+                          href="/business"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-brand-light hover:text-brand hover:bg-brand/[0.04] transition-all"
+                        >
+                          <Building2 className="w-4 h-4" />
+                          B2B Кабинет
+                        </Link>
+                      )}
                       <Link
                         href="/profile"
                         onClick={() => setUserMenuOpen(false)}
@@ -152,6 +162,12 @@ export default function Header() {
               </>
             ) : (
               <div className="flex items-center gap-2">
+                <Link
+                  href="/auth/register-business"
+                  className="hidden sm:block px-3 py-2 rounded-lg text-xs font-medium text-brand-light hover:text-brand hover:bg-brand/[0.04] transition-all"
+                >
+                  Для бизнеса
+                </Link>
                 <Link
                   href="/auth/login"
                   className="px-4 py-2 rounded-lg text-sm font-medium text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover-bg)] transition-all"
