@@ -15,6 +15,9 @@ import {
   CreditCard,
   ChevronRight,
   Loader2,
+  Star,
+  X,
+  Send,
 } from "lucide-react";
 
 type Tab = "profile" | "cars" | "bookings" | "settings";
@@ -42,6 +45,7 @@ interface CarItem {
 
 interface BookingItem {
   id: string;
+  serviceCenterId: string;
   serviceType: string;
   date: string;
   time: string;
@@ -307,6 +311,11 @@ function CarsTab({ cars }: { cars: CarItem[] }) {
 function BookingsTab({ bookings: initialBookings }: { bookings: BookingItem[] }) {
   const [bookings, setBookings] = useState(initialBookings);
   const [cancelling, setCancelling] = useState<string | null>(null);
+  const [reviewBooking, setReviewBooking] = useState<BookingItem | null>(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewText, setReviewText] = useState("");
+  const [reviewSending, setReviewSending] = useState(false);
+  const [reviewedIds, setReviewedIds] = useState<Set<string>>(new Set());
 
   const handleCancel = async (bookingId: string) => {
     if (!confirm("Вы уверены, что хотите отменить запись?")) return;
@@ -323,6 +332,30 @@ function BookingsTab({ bookings: initialBookings }: { bookings: BookingItem[] })
       }
     } catch {}
     setCancelling(null);
+  };
+
+  const handleSubmitReview = async () => {
+    if (!reviewBooking || !reviewText.trim()) return;
+    setReviewSending(true);
+    try {
+      const res = await fetch("/api/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          serviceCenterId: reviewBooking.serviceCenterId,
+          rating: reviewRating,
+          text: reviewText,
+          carModel: `${reviewBooking.car.make} ${reviewBooking.car.model}`,
+        }),
+      });
+      if (res.ok) {
+        setReviewedIds((prev) => new Set(prev).add(reviewBooking.id));
+        setReviewBooking(null);
+        setReviewText("");
+        setReviewRating(5);
+      }
+    } catch {}
+    setReviewSending(false);
   };
 
   return (
@@ -345,6 +378,7 @@ function BookingsTab({ bookings: initialBookings }: { bookings: BookingItem[] })
         const st = statusLabel[b.status] || statusLabel.pending;
         const d = new Date(b.date);
         const canCancel = b.status === "pending" || b.status === "confirmed";
+        const canReview = b.status === "completed" && !reviewedIds.has(b.id);
         return (
           <div key={b.id} className="card-surface">
             <div className="flex items-start justify-between flex-wrap gap-3 mb-3">
@@ -365,19 +399,115 @@ function BookingsTab({ bookings: initialBookings }: { bookings: BookingItem[] })
                   {b.car.make} {b.car.model}
                 </span>
               </div>
-              {canCancel && (
-                <button
-                  onClick={() => handleCancel(b.id)}
-                  disabled={cancelling === b.id}
-                  className="text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
-                >
-                  {cancelling === b.id ? "Отмена..." : "Отменить"}
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {canReview && (
+                  <button
+                    onClick={() => {
+                      setReviewBooking(b);
+                      setReviewRating(5);
+                      setReviewText("");
+                    }}
+                    className="text-xs text-brand-light hover:text-brand hover:bg-brand/10 px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5"
+                  >
+                    <Star className="w-3.5 h-3.5" />
+                    Оставить отзыв
+                  </button>
+                )}
+                {reviewedIds.has(b.id) && (
+                  <span className="text-xs text-emerald-400 px-3 py-1.5 flex items-center gap-1.5">
+                    <Star className="w-3.5 h-3.5 fill-emerald-400" />
+                    Отзыв отправлен
+                  </span>
+                )}
+                {canCancel && (
+                  <button
+                    onClick={() => handleCancel(b.id)}
+                    disabled={cancelling === b.id}
+                    className="text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
+                  >
+                    {cancelling === b.id ? "Отмена..." : "Отменить"}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         );
       })}
+
+      {/* Review Modal */}
+      {reviewBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setReviewBooking(null)} />
+          <div className="relative bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl w-full max-w-md shadow-xl">
+            <div className="flex items-center justify-between p-5 border-b border-[var(--border)]">
+              <h2 className="text-lg font-bold text-text">Оставить отзыв</h2>
+              <button onClick={() => setReviewBooking(null)} className="p-1.5 rounded-lg hover:bg-[var(--hover-bg)] transition-colors">
+                <X className="w-5 h-5 text-text-muted" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="text-sm text-text-muted">
+                <span className="text-text font-medium">{reviewBooking.serviceCenter.name}</span>
+                <br />
+                {reviewBooking.serviceType} · {reviewBooking.car.make} {reviewBooking.car.model}
+              </div>
+
+              {/* Star rating */}
+              <div>
+                <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Оценка</label>
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setReviewRating(star)}
+                      className="p-1 transition-transform hover:scale-110"
+                    >
+                      <Star
+                        className={`w-7 h-7 transition-colors ${
+                          star <= reviewRating
+                            ? "text-accent fill-accent"
+                            : "text-text-dim"
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Review text */}
+              <div>
+                <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Ваш отзыв</label>
+                <textarea
+                  value={reviewText}
+                  onChange={(e) => setReviewText(e.target.value)}
+                  className="input-field text-sm min-h-[100px] resize-none"
+                  placeholder="Расскажите о качестве работы, отношении персонала, соответствии цены..."
+                />
+              </div>
+
+              <button
+                onClick={handleSubmitReview}
+                disabled={reviewSending || !reviewText.trim()}
+                className="btn-primary w-full justify-center text-sm !py-3 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {reviewSending ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Отправка...
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <Send className="w-4 h-4" />
+                    Отправить отзыв
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

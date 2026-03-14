@@ -13,6 +13,8 @@ import {
   Car,
   ShoppingCart,
   Loader2,
+  X,
+  Trash2,
 } from "lucide-react";
 
 const categories = [
@@ -63,6 +65,26 @@ interface CarItem {
   vin: string;
 }
 
+interface CartItem {
+  offerId: string;
+  partName: string;
+  brand: string;
+  price: number;
+  seller: string;
+  partNumber: string;
+}
+
+function loadCart(): CartItem[] {
+  if (typeof window === "undefined") return [];
+  try {
+    return JSON.parse(localStorage.getItem("autoeco_cart") || "[]");
+  } catch { return []; }
+}
+
+function saveCart(items: CartItem[]) {
+  localStorage.setItem("autoeco_cart", JSON.stringify(items));
+}
+
 export default function PartsPage() {
   const { status: authStatus } = useSession();
   const [query, setQuery] = useState("");
@@ -72,7 +94,15 @@ export default function PartsPage() {
   const [searched, setSearched] = useState(false);
   const [results, setResults] = useState<Part[]>([]);
   const [loading, setLoading] = useState(true);
-  const [addedToCart, setAddedToCart] = useState<string[]>([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cartOpen, setCartOpen] = useState(false);
+
+  // Load cart from localStorage
+  useEffect(() => {
+    setCart(loadCart());
+  }, []);
+
+  const addedToCart = cart.map((c) => c.offerId);
 
   // Load cars from API
   useEffect(() => {
@@ -112,9 +142,20 @@ export default function PartsPage() {
       .finally(() => setLoading(false));
   };
 
-  const handleAddCart = (offerId: string) => {
-    setAddedToCart((prev) => [...prev, offerId]);
+  const handleAddCart = (offerId: string, partName: string, offer: PartOffer) => {
+    if (addedToCart.includes(offerId)) return;
+    const newCart = [...cart, { offerId, partName, brand: offer.brand, price: offer.price, seller: offer.seller, partNumber: offer.partNumber }];
+    setCart(newCart);
+    saveCart(newCart);
   };
+
+  const handleRemoveFromCart = (offerId: string) => {
+    const newCart = cart.filter((c) => c.offerId !== offerId);
+    setCart(newCart);
+    saveCart(newCart);
+  };
+
+  const cartTotal = cart.reduce((sum, c) => sum + c.price, 0);
 
   const parseCompatibleCars = (str: string): string[] => {
     try { return JSON.parse(str); } catch { return []; }
@@ -331,7 +372,7 @@ export default function PartsPage() {
                             </div>
                             {offer.inStock ? (
                               <button
-                                onClick={() => handleAddCart(offer.id)}
+                                onClick={() => handleAddCart(offer.id, part.name, offer)}
                                 className={`p-2 rounded-xl transition-all ${
                                   addedToCart.includes(offer.id)
                                     ? "bg-emerald-500/20 text-emerald-400"
@@ -402,7 +443,7 @@ export default function PartsPage() {
                               </div>
                               {offer.inStock ? (
                                 <button
-                                  onClick={() => handleAddCart(offer.id)}
+                                  onClick={() => handleAddCart(offer.id, part.name, offer)}
                                   className={`p-2 rounded-xl transition-all ${
                                     addedToCart.includes(offer.id)
                                       ? "bg-emerald-500/20 text-emerald-400"
@@ -440,6 +481,73 @@ export default function PartsPage() {
             </div>
           )}
         </>
+      )}
+      {/* Floating cart button */}
+      {cart.length > 0 && !cartOpen && (
+        <button
+          onClick={() => setCartOpen(true)}
+          className="fixed bottom-6 right-6 z-40 btn-primary !rounded-full !p-4 shadow-lg flex items-center gap-2"
+        >
+          <ShoppingCart className="w-5 h-5" />
+          <span className="font-bold">{cart.length}</span>
+          <span className="hidden sm:inline text-sm">· {cartTotal.toLocaleString("ru")} ₽</span>
+        </button>
+      )}
+
+      {/* Cart panel */}
+      {cartOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setCartOpen(false)} />
+          <div className="relative w-full max-w-md bg-[var(--bg-card)] border-l border-[var(--border)] shadow-xl flex flex-col h-full">
+            <div className="flex items-center justify-between p-5 border-b border-[var(--border)]">
+              <div className="flex items-center gap-2">
+                <ShoppingCart className="w-5 h-5 text-brand-light" />
+                <h2 className="text-lg font-bold text-text">Корзина</h2>
+                <span className="text-sm text-text-muted">({cart.length})</span>
+              </div>
+              <button onClick={() => setCartOpen(false)} className="p-1.5 rounded-lg hover:bg-[var(--hover-bg)] transition-colors">
+                <X className="w-5 h-5 text-text-muted" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5 space-y-3">
+              {cart.map((item) => (
+                <div key={item.offerId} className="flex items-start gap-3 p-3 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)]">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-text truncate">{item.partName}</div>
+                    <div className="text-xs text-text-muted mt-0.5">{item.brand} · {item.seller}</div>
+                    <div className="text-xs text-text-dim font-mono mt-0.5">{item.partNumber}</div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <div className="text-sm font-bold text-text">{item.price.toLocaleString("ru")} ₽</div>
+                    <button
+                      onClick={() => handleRemoveFromCart(item.offerId)}
+                      className="text-red-400 hover:text-red-300 mt-1 p-1 rounded hover:bg-red-500/10 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="p-5 border-t border-[var(--border)] space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-text-muted text-sm">Итого:</span>
+                <span className="text-xl font-bold text-text">{cartTotal.toLocaleString("ru")} ₽</span>
+              </div>
+              <button className="btn-primary w-full justify-center text-sm !py-3">
+                Оформить заказ
+              </button>
+              <button
+                onClick={() => { setCart([]); saveCart([]); setCartOpen(false); }}
+                className="w-full text-center text-xs text-text-muted hover:text-red-400 transition-colors py-1"
+              >
+                Очистить корзину
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </AppLayout>
   );
