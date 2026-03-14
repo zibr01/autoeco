@@ -25,6 +25,9 @@ import {
   Clock,
   ArrowRight,
   Loader2,
+  Plus,
+  X,
+  AlertCircle,
 } from "lucide-react";
 
 const tabs = ["Журнал ТО", "Напоминания", "Документы"] as const;
@@ -97,6 +100,18 @@ export default function CarProfilePage() {
   const [car, setCar] = useState<CarData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("Журнал ТО");
+  const [showAddMaintenance, setShowAddMaintenance] = useState(false);
+
+  const fetchCar = () => {
+    fetch(`/api/cars/${id}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Not found");
+        return res.json();
+      })
+      .then(setCar)
+      .catch(() => setCar(null))
+      .finally(() => setLoading(false));
+  };
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -104,14 +119,7 @@ export default function CarProfilePage() {
       return;
     }
     if (status === "authenticated") {
-      fetch(`/api/cars/${id}`)
-        .then((res) => {
-          if (!res.ok) throw new Error("Not found");
-          return res.json();
-        })
-        .then(setCar)
-        .catch(() => setCar(null))
-        .finally(() => setLoading(false));
+      fetchCar();
     }
   }, [id, status, router]);
 
@@ -255,6 +263,12 @@ export default function CarProfilePage() {
       {/* Tab content */}
       {activeTab === "Журнал ТО" && (
         <div className="space-y-3">
+          <div className="flex justify-end mb-2">
+            <button onClick={() => setShowAddMaintenance(true)} className="btn-primary text-sm !py-2 flex items-center gap-1.5">
+              <Plus className="w-4 h-4" />
+              Добавить запись
+            </button>
+          </div>
           {car.maintenanceRecords.length === 0 && (
             <div className="text-center py-12 text-text-muted">
               <Wrench className="w-10 h-10 mx-auto mb-3 text-text-dim" />
@@ -439,6 +453,169 @@ export default function CarProfilePage() {
           </button>
         </div>
       )}
+      {showAddMaintenance && (
+        <AddMaintenanceModal
+          carId={car.id}
+          currentMileage={car.mileage}
+          onClose={() => setShowAddMaintenance(false)}
+          onAdded={() => {
+            setShowAddMaintenance(false);
+            fetchCar();
+          }}
+        />
+      )}
     </AppLayout>
+  );
+}
+
+function AddMaintenanceModal({
+  carId,
+  currentMileage,
+  onClose,
+  onAdded,
+}: {
+  carId: string;
+  currentMileage: number;
+  onClose: () => void;
+  onAdded: () => void;
+}) {
+  const [form, setForm] = useState({
+    date: new Date().toISOString().split("T")[0],
+    mileage: currentMileage,
+    type: "Плановое ТО",
+    description: "",
+    cost: 0,
+    serviceName: "",
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const update = (field: string, value: string | number) => {
+    setForm((p) => ({ ...p, [field]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    if (!form.type || !form.description) {
+      setError("Тип работы и описание обязательны");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/cars/${carId}/maintenance`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          mileage: Number(form.mileage),
+          cost: Number(form.cost),
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || "Ошибка при добавлении");
+        setLoading(false);
+        return;
+      }
+
+      onAdded();
+    } catch {
+      setError("Ошибка сети");
+      setLoading(false);
+    }
+  };
+
+  const serviceTypes = [
+    "Плановое ТО",
+    "Замена масла",
+    "Замена тормозных колодок",
+    "Замена тормозных дисков и колодок",
+    "Замена шин",
+    "Замена ремня ГРМ",
+    "Замена свечей",
+    "Замена тормозной жидкости",
+    "Замена аккумулятора",
+    "Диагностика",
+    "Ремонт ходовой",
+    "Ремонт двигателя",
+    "Кузовной ремонт",
+    "Другое",
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl">
+        <div className="sticky top-0 bg-[var(--bg-card)] flex items-center justify-between p-5 border-b border-[var(--border)] z-10">
+          <h2 className="text-lg font-bold text-text">Добавить запись ТО</h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--hover-bg)] transition-colors">
+            <X className="w-5 h-5 text-text-muted" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          {error && (
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/5 border border-red-500/15">
+              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+              <span className="text-sm text-red-400">{error}</span>
+            </div>
+          )}
+
+          <div>
+            <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Тип работы *</label>
+            <select value={form.type} onChange={(e) => update("type", e.target.value)} className="input-field text-sm">
+              {serviceTypes.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Описание *</label>
+            <textarea value={form.description} onChange={(e) => update("description", e.target.value)} className="input-field text-sm min-h-[80px] resize-none" placeholder="Что было сделано..." required />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Дата</label>
+              <input type="date" value={form.date} onChange={(e) => update("date", e.target.value)} className="input-field text-sm" />
+            </div>
+            <div>
+              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Пробег (км)</label>
+              <input type="number" value={form.mileage} onChange={(e) => update("mileage", e.target.value)} className="input-field text-sm" min={0} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Стоимость (₽)</label>
+              <input type="number" value={form.cost} onChange={(e) => update("cost", e.target.value)} className="input-field text-sm" min={0} />
+            </div>
+            <div>
+              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Сервис</label>
+              <input type="text" value={form.serviceName} onChange={(e) => update("serviceName", e.target.value)} className="input-field text-sm" placeholder="Название сервиса" />
+            </div>
+          </div>
+
+          <button type="submit" disabled={loading} className="btn-primary w-full justify-center text-sm !py-3 disabled:opacity-50 disabled:cursor-not-allowed">
+            {loading ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Сохраняем...
+              </span>
+            ) : (
+              <span className="flex items-center gap-2">
+                <Plus className="w-4 h-4" />
+                Добавить запись
+              </span>
+            )}
+          </button>
+        </form>
+      </div>
+    </div>
   );
 }

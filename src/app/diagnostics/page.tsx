@@ -30,102 +30,17 @@ interface CarItem {
   year: number;
 }
 
-// Predefined diagnostic scenarios
-const scenarios: Record<
-  string,
-  { questions: string[]; diagnosis: { title: string; causes: { text: string; probability: number }[]; urgency: "high" | "medium" | "low"; recommendation: string } }
-> = {
-  стук: {
-    questions: [
-      "Уточните: стук при торможении или постоянно во время движения?",
-      "Стук слышен спереди или сзади? С какой стороны?",
-      "При каком пробеге вы заменяли тормозные колодки последний раз?",
-    ],
-    diagnosis: {
-      title: "Диагноз по описанным симптомам",
-      causes: [
-        { text: "Износ тормозных колодок — индикатор износа касается диска", probability: 65 },
-        { text: "Износ тормозного диска — выработка поверхности диска", probability: 20 },
-        { text: "Попадание постороннего предмета (камня) между колодкой и диском", probability: 10 },
-        { text: "Люфт суппорта тормозного механизма", probability: 5 },
-      ],
-      urgency: "high",
-      recommendation:
-        "Рекомендуем незамедлительно проверить тормозную систему. Тормоза — критически важная система безопасности. Не откладывайте визит в сервис.",
-    },
-  },
-  масло: {
-    questions: [
-      "Как давно появился запах горящего масла?",
-      "Вы замечали масляные пятна под машиной?",
-      "Когда последний раз проверяли уровень масла?",
-    ],
-    diagnosis: {
-      title: "Диагноз по описанным симптомам",
-      causes: [
-        { text: "Течь масла через прокладку клапанной крышки", probability: 45 },
-        { text: "Попадание масла на горячий выпускной коллектор", probability: 30 },
-        { text: "Изношенные сальники коленчатого вала", probability: 20 },
-        { text: "Переполнение масла — уровень выше максимума", probability: 5 },
-      ],
-      urgency: "medium",
-      recommendation:
-        "Проверьте уровень масла щупом. Если уровень в норме — запишитесь на диагностику в течение недели. Регулярно проверяйте уровень до визита в сервис.",
-    },
-  },
-  заводится: {
-    questions: [
-      "Машина совсем не заводится или заводится с трудом?",
-      "Аккумулятор новый? Когда меняли?",
-      "Как ведёт себя двигатель: крутит стартер, но не схватывает, или стартер не крутит?",
-    ],
-    diagnosis: {
-      title: "Диагноз по описанным симптомам",
-      causes: [
-        { text: "Слабый или разряженный аккумулятор", probability: 50 },
-        { text: "Неисправность стартера", probability: 20 },
-        { text: "Проблемы с топливной системой (насос, форсунки)", probability: 15 },
-        { text: "Неисправность системы зажигания (датчик коленвала)", probability: 15 },
-      ],
-      urgency: "high",
-      recommendation:
-        "Попробуйте завести от другого аккумулятора (прикурить). Если помогло — замените аккумулятор. Если нет — нужна полная диагностика в сервисе.",
-    },
-  },
-  вибрация: {
-    questions: [
-      "Вибрация на каком скоростном диапазоне? На любой скорости или только на определённой?",
-      "Вибрация при разгоне или постоянно?",
-      "Когда последний раз делали балансировку колёс?",
-    ],
-    diagnosis: {
-      title: "Диагноз по описанным симптомам",
-      causes: [
-        { text: "Дисбаланс колёс — нарушение балансировки", probability: 40 },
-        { text: "Деформация диска (повреждение от ямы)", probability: 25 },
-        { text: "Износ ступичного подшипника", probability: 20 },
-        { text: "Неравномерный износ шин", probability: 15 },
-      ],
-      urgency: "medium",
-      recommendation:
-        "Рекомендуем начать с балансировки и проверки колёс у специалиста. При сильной вибрации лучше не затягивать.",
-    },
-  },
-};
-
-function getScenarioKey(text: string): string | null {
-  if (text.includes("стук") || text.includes("скрип") || text.includes("скрежет") || text.includes("пищит")) return "стук";
-  if (text.includes("масло") || text.includes("запах") || text.includes("дым")) return "масло";
-  if (text.includes("не завод") || text.includes("завест") || text.includes("стартер") || text.includes("аккумулятор")) return "заводится";
-  if (text.includes("вибрац") || text.includes("трясёт") || text.includes("трясет") || text.includes("дрожит")) return "вибрация";
-  return null;
-}
-
 const suggestedSymptoms = [
   "Стук при торможении",
   "Запах горящего масла",
   "Не заводится утром",
   "Вибрация на скорости",
+  "Перегревается двигатель",
+  "Горит Check Engine",
+  "Стук в подвеске на кочках",
+  "Рывки при переключении передач",
+  "Увеличился расход топлива",
+  "Тяжело крутить руль",
 ];
 
 export default function DiagnosticsPage() {
@@ -135,8 +50,7 @@ export default function DiagnosticsPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [step, setStep] = useState(0);
-  const [scenarioKey, setScenarioKey] = useState<string | null>(null);
+  const [urgency, setUrgency] = useState<"high" | "medium" | "low" | null>(null);
   const [diagnosisShown, setDiagnosisShown] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -156,64 +70,51 @@ export default function DiagnosticsPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  const addAIMessage = async (text: string, type?: "question" | "diagnosis") => {
-    setIsTyping(true);
-    await new Promise((r) => setTimeout(r, 800 + Math.random() * 600));
-    setIsTyping(false);
-    setMessages((prev) => [...prev, { role: "ai", text, type }]);
-  };
-
   const handleSend = async (text?: string) => {
     const msg = text ?? input.trim();
-    if (!msg) return;
+    if (!msg || isTyping) return;
     setInput("");
 
-    setMessages((prev) => [...prev, { role: "user", text: msg }]);
+    const userMsg: Message = { role: "user", text: msg };
+    const newMessages = [...messages, userMsg];
+    setMessages(newMessages);
+    setIsTyping(true);
 
-    if (step === 0) {
-      const key = getScenarioKey(msg.toLowerCase());
-      setScenarioKey(key);
+    try {
+      const res = await fetch("/api/diagnostics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: msg,
+          history: newMessages,
+          carId: selectedCar?.id,
+        }),
+      });
 
-      if (!key) {
-        await addAIMessage(
-          `Понял, вы описываете: "${msg}". Уточните, пожалуйста: когда именно проявляется этот симптом — при движении, торможении, на холостом ходу или при запуске?`,
-          "question"
-        );
-        setStep(1);
-        return;
-      }
+      const data = await res.json();
+      setIsTyping(false);
 
-      const scenario = scenarios[key];
-      await addAIMessage(scenario.questions[0], "question");
-      setStep(1);
-    } else if (scenarioKey && step >= 1) {
-      const scenario = scenarios[scenarioKey];
-      const nextQuestion = scenario.questions[step];
+      const aiMsg: Message = { role: "ai", text: data.reply, type: data.type };
+      setMessages((prev) => [...prev, aiMsg]);
 
-      if (nextQuestion && step < 2) {
-        await addAIMessage(nextQuestion, "question");
-        setStep((s) => s + 1);
-      } else if (!diagnosisShown) {
+      if (data.type === "diagnosis") {
         setDiagnosisShown(true);
-        const d = scenario.diagnosis;
-        const diagText = `**${d.title}**\n\n${d.causes
-          .map((c) => `• ${c.text} — вероятность ${c.probability}%`)
-          .join("\n")}\n\n**Уровень срочности:** ${
-          d.urgency === "high" ? "Срочно" : d.urgency === "medium" ? "В течение недели" : "Плановый ремонт"
-        }\n\n**Рекомендация:** ${d.recommendation}`;
-        await addAIMessage(diagText, "diagnosis");
-        setStep((s) => s + 1);
-      } else {
-        await addAIMessage(
-          "Есть ещё вопросы? Вы можете описать другой симптом или перейти к поиску подходящего сервиса.",
-        );
+        if (data.urgency) setUrgency(data.urgency);
       }
+    } catch {
+      setIsTyping(false);
+      setMessages((prev) => [
+        ...prev,
+        { role: "ai", text: "Произошла ошибка. Попробуйте ещё раз.", type: "question" },
+      ]);
     }
   };
 
-  const urgencyInfo = scenarioKey && diagnosisShown
-    ? scenarios[scenarioKey].diagnosis.urgency
-    : null;
+  const handleReset = () => {
+    setMessages([]);
+    setUrgency(null);
+    setDiagnosisShown(false);
+  };
 
   return (
     <AppLayout>
@@ -269,14 +170,15 @@ export default function DiagnosticsPage() {
                 <div className="glass rounded-2xl rounded-tl-sm px-4 py-3 max-w-md">
                   <p className="text-text text-sm leading-relaxed">
                     Привет! Я AI-ассистент AutoEco.
-                    <br />
-                    <br />
-                    Опишите симптом вашего автомобиля — что именно происходит, когда это началось. Я задам уточняющие вопросы и помогу разобраться в ситуации.
+                    <br /><br />
+                    Опишите симптом вашего автомобиля — я задам уточняющие вопросы и помогу определить возможные причины.
+                    <br /><br />
+                    Я знаю 10 основных категорий неисправностей: тормоза, двигатель, подвеска, электрика, КПП, охлаждение, рулевое и другие.
                   </p>
                 </div>
               </div>
 
-              {/* Suggested symptoms (only before first message) */}
+              {/* Suggested symptoms */}
               {messages.length === 0 && (
                 <div className="pl-11">
                   <div className="text-xs text-text-muted mb-2">Частые симптомы:</div>
@@ -311,13 +213,20 @@ export default function DiagnosticsPage() {
                         : "glass rounded-tl-sm text-text"
                     }`}
                   >
-                    {msg.type === "diagnosis"
-                      ? msg.text.split("\n").map((line, j) => (
-                          <p key={j} className={`${line.startsWith("**") ? "font-semibold text-text" : "text-text-muted"} ${j > 0 ? "mt-2" : ""}`}>
-                            {line.replace(/\*\*/g, "")}
-                          </p>
-                        ))
-                      : msg.text}
+                    {msg.text.split("\n").map((line, j) => {
+                      if (!line.trim()) return <br key={j} />;
+                      const isBold = line.startsWith("**") || line.includes("**");
+                      const clean = line.replace(/\*\*/g, "");
+                      const isList = clean.startsWith("- ");
+                      return (
+                        <p
+                          key={j}
+                          className={`${isBold ? "font-semibold text-text" : msg.role === "user" ? "" : "text-text-muted"} ${j > 0 && !isList ? "mt-1" : ""} ${isList ? "ml-1" : ""}`}
+                        >
+                          {clean}
+                        </p>
+                      );
+                    })}
                   </div>
                 </div>
               ))}
@@ -338,9 +247,9 @@ export default function DiagnosticsPage() {
                 </div>
               )}
 
-              {/* Find service button after diagnosis */}
+              {/* Action buttons after diagnosis */}
               {diagnosisShown && !isTyping && (
-                <div className="pl-11">
+                <div className="pl-11 flex flex-wrap gap-2">
                   <Link
                     href="/services"
                     className="inline-flex items-center gap-2 btn-primary text-sm py-2.5 px-5"
@@ -349,6 +258,12 @@ export default function DiagnosticsPage() {
                     Найти сервис для ремонта
                     <ArrowRight className="w-4 h-4" />
                   </Link>
+                  <button
+                    onClick={handleReset}
+                    className="btn-secondary text-sm py-2.5 px-5"
+                  >
+                    Новая диагностика
+                  </button>
                 </div>
               )}
 
@@ -379,36 +294,36 @@ export default function DiagnosticsPage() {
         {/* Right panel */}
         <div className="space-y-4">
           {/* Urgency indicator */}
-          {urgencyInfo && (
+          {urgency && (
             <div
               className={`rounded-2xl p-5 border ${
-                urgencyInfo === "high"
+                urgency === "high"
                   ? "bg-red-500/10 border-red-500/30"
-                  : urgencyInfo === "medium"
+                  : urgency === "medium"
                   ? "bg-accent/10 border-accent/30"
                   : "bg-emerald-500/10 border-emerald-500/30"
               }`}
             >
               <div className="flex items-center gap-2 mb-2">
-                {urgencyInfo === "high" ? (
+                {urgency === "high" ? (
                   <AlertTriangle className="w-5 h-5 text-red-400" />
-                ) : urgencyInfo === "medium" ? (
+                ) : urgency === "medium" ? (
                   <Clock className="w-5 h-5 text-accent" />
                 ) : (
                   <CheckCircle2 className="w-5 h-5 text-emerald-400" />
                 )}
                 <span className="font-semibold text-text text-sm">
-                  {urgencyInfo === "high"
+                  {urgency === "high"
                     ? "Требует срочного внимания"
-                    : urgencyInfo === "medium"
+                    : urgency === "medium"
                     ? "Нужен ремонт в течение недели"
                     : "Плановый ремонт"}
                 </span>
               </div>
               <p className="text-text-muted text-sm">
-                {urgencyInfo === "high"
+                {urgency === "high"
                   ? "Не откладывайте визит в сервис. Проблема может влиять на безопасность."
-                  : urgencyInfo === "medium"
+                  : urgency === "medium"
                   ? "Запишитесь в удобное время в течение недели."
                   : "Запланируйте ремонт при следующем плановом ТО."}
               </p>
@@ -425,9 +340,9 @@ export default function DiagnosticsPage() {
               {[
                 "Опишите симптом своими словами",
                 "AI задаёт уточняющие вопросы",
-                "Получаете вероятные причины с %",
+                "Анализ по базе из 10 категорий",
+                "Вероятные причины с процентами",
                 "Уровень срочности и рекомендация",
-                "Находите подходящий сервис",
               ].map((step, i) => (
                 <div key={step} className="flex items-start gap-3">
                   <div className="w-5 h-5 rounded-full bg-brand/20 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -439,10 +354,26 @@ export default function DiagnosticsPage() {
             </div>
           </div>
 
+          {/* Categories */}
+          <div className="card-surface">
+            <span className="font-semibold text-text text-sm mb-3 block">Категории диагностики</span>
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                "Тормоза", "Двигатель", "Подвеска", "Электрика",
+                "КПП", "Охлаждение", "Рулевое", "Топливо",
+                "Колёса", "Запуск",
+              ].map((cat) => (
+                <span key={cat} className="text-xs bg-brand/10 text-brand px-2.5 py-1 rounded-full">
+                  {cat}
+                </span>
+              ))}
+            </div>
+          </div>
+
           {/* Disclaimer */}
           <div className="glass rounded-xl p-4 border border-prussian/[0.06]">
             <p className="text-text-dim text-xs leading-relaxed">
-              AI-диагностика носит рекомендательный характер. Для точного диагноза обратитесь к квалифицированному автомеханику.
+              AI-диагностика носит рекомендательный характер и основана на базе типичных неисправностей. Для точного диагноза обратитесь к квалифицированному автомеханику.
             </p>
           </div>
         </div>

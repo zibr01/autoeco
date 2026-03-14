@@ -18,6 +18,8 @@ import {
   Battery,
   Disc,
   Loader2,
+  X,
+  AlertCircle,
 } from "lucide-react";
 
 interface ReminderData {
@@ -63,6 +65,14 @@ export default function GaragePage() {
   const router = useRouter();
   const [carsData, setCarsData] = useState<CarData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showAddModal, setShowAddModal] = useState(false);
+
+  const fetchCars = () => {
+    fetch("/api/cars")
+      .then((r) => r.json())
+      .then((data) => setCarsData(Array.isArray(data) ? data : []))
+      .finally(() => setLoading(false));
+  };
 
   useEffect(() => {
     if (authStatus === "unauthenticated") {
@@ -70,10 +80,7 @@ export default function GaragePage() {
       return;
     }
     if (authStatus === "authenticated") {
-      fetch("/api/cars")
-        .then((r) => r.json())
-        .then((data) => setCarsData(Array.isArray(data) ? data : []))
-        .finally(() => setLoading(false));
+      fetchCars();
     }
   }, [authStatus, router]);
 
@@ -103,7 +110,7 @@ export default function GaragePage() {
             {session?.user?.name ? `Привет, ${session.user.name}` : "Привет"} 👋 · {carsData.length} автомобил{carsData.length === 1 ? "ь" : carsData.length < 5 ? "я" : "ей"}
           </p>
         </div>
-        <button className="btn-primary flex items-center gap-2">
+        <button onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-2">
           <Plus className="w-4 h-4" />
           Добавить авто
         </button>
@@ -169,7 +176,7 @@ export default function GaragePage() {
             );
           })}
 
-          <button className="w-full card border-dashed border-prussian/[0.12] hover:border-brand/40 hover:bg-brand/5 transition-all duration-200 flex items-center justify-center gap-3 text-text-muted hover:text-brand-light py-8">
+          <button onClick={() => setShowAddModal(true)} className="w-full card border-dashed border-prussian/[0.12] hover:border-brand/40 hover:bg-brand/5 transition-all duration-200 flex items-center justify-center gap-3 text-text-muted hover:text-brand-light py-8">
             <div className="w-10 h-10 rounded-xl border-2 border-dashed border-current flex items-center justify-center">
               <Plus className="w-5 h-5" />
             </div>
@@ -215,6 +222,177 @@ export default function GaragePage() {
           })}
         </div>
       </div>
+
+      {showAddModal && (
+        <AddCarModal
+          onClose={() => setShowAddModal(false)}
+          onAdded={() => {
+            setShowAddModal(false);
+            fetchCars();
+          }}
+        />
+      )}
     </AppLayout>
+  );
+}
+
+function AddCarModal({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
+  const [form, setForm] = useState({
+    make: "",
+    model: "",
+    year: new Date().getFullYear(),
+    vin: "",
+    mileage: 0,
+    color: "",
+    engine: "",
+    transmission: "Автомат",
+    fuelType: "Бензин",
+    licensePlate: "",
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const update = (field: string, value: string | number) => {
+    setForm((p) => ({ ...p, [field]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    if (!form.make || !form.model || !form.vin) {
+      setError("Марка, модель и VIN обязательны");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/cars", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          year: Number(form.year),
+          mileage: Number(form.mileage),
+          health: 100,
+          image: "",
+          nextService: "не указано",
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || "Ошибка при добавлении");
+        setLoading(false);
+        return;
+      }
+
+      onAdded();
+    } catch {
+      setError("Ошибка сети");
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl">
+        <div className="sticky top-0 bg-[var(--bg-card)] flex items-center justify-between p-5 border-b border-[var(--border)] z-10">
+          <h2 className="text-lg font-bold text-text">Добавить автомобиль</h2>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--hover-bg)] transition-colors">
+            <X className="w-5 h-5 text-text-muted" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          {error && (
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/5 border border-red-500/15">
+              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+              <span className="text-sm text-red-400">{error}</span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Марка *</label>
+              <input type="text" value={form.make} onChange={(e) => update("make", e.target.value)} className="input-field text-sm" placeholder="BMW" required />
+            </div>
+            <div>
+              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Модель *</label>
+              <input type="text" value={form.model} onChange={(e) => update("model", e.target.value)} className="input-field text-sm" placeholder="5 Series 530i" required />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">VIN *</label>
+            <input type="text" value={form.vin} onChange={(e) => update("vin", e.target.value.toUpperCase())} className="input-field text-sm font-mono" placeholder="WBA53AH08MWX12345" required maxLength={17} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Год выпуска</label>
+              <input type="number" value={form.year} onChange={(e) => update("year", e.target.value)} className="input-field text-sm" min={1990} max={2030} />
+            </div>
+            <div>
+              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Пробег (км)</label>
+              <input type="number" value={form.mileage} onChange={(e) => update("mileage", e.target.value)} className="input-field text-sm" min={0} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Цвет</label>
+              <input type="text" value={form.color} onChange={(e) => update("color", e.target.value)} className="input-field text-sm" placeholder="Серый металлик" />
+            </div>
+            <div>
+              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Госномер</label>
+              <input type="text" value={form.licensePlate} onChange={(e) => update("licensePlate", e.target.value.toUpperCase())} className="input-field text-sm" placeholder="А777БВ 77" />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Двигатель</label>
+            <input type="text" value={form.engine} onChange={(e) => update("engine", e.target.value)} className="input-field text-sm" placeholder="2.0L Turbo 249 л.с." />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">КПП</label>
+              <select value={form.transmission} onChange={(e) => update("transmission", e.target.value)} className="input-field text-sm">
+                <option>Автомат</option>
+                <option>Механика</option>
+                <option>Робот</option>
+                <option>Вариатор</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Топливо</label>
+              <select value={form.fuelType} onChange={(e) => update("fuelType", e.target.value)} className="input-field text-sm">
+                <option>Бензин</option>
+                <option>Дизель</option>
+                <option>Гибрид</option>
+                <option>Электро</option>
+                <option>Газ</option>
+              </select>
+            </div>
+          </div>
+
+          <button type="submit" disabled={loading} className="btn-primary w-full justify-center text-sm !py-3 disabled:opacity-50 disabled:cursor-not-allowed">
+            {loading ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Добавляем...
+              </span>
+            ) : (
+              <span className="flex items-center gap-2">
+                <Plus className="w-4 h-4" />
+                Добавить автомобиль
+              </span>
+            )}
+          </button>
+        </form>
+      </div>
+    </div>
   );
 }
