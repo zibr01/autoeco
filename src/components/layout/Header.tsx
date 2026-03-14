@@ -41,7 +41,7 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-5 sm:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5 group">
+          <Link href={isAuth ? "/dashboard" : "/"} className="flex items-center gap-2.5 group">
             <div className="w-8 h-8 rounded-lg bg-prussian flex items-center justify-center group-hover:shadow-brand transition-shadow">
               <Car className="w-4 h-4 text-white" />
             </div>
