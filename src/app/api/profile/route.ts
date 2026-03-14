@@ -62,3 +62,17 @@ export async function PATCH(req: Request) {
 
   return NextResponse.json(updated);
 }
+
+export async function DELETE() {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
+  }
+
+  // Cascade delete handled by Prisma schema (onDelete: Cascade)
+  await prisma.user.delete({
+    where: { id: user.id },
+  });
+
+  return NextResponse.json({ success: true });
+}

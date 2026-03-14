@@ -20,6 +20,47 @@ export async function GET() {
   return NextResponse.json(bookings);
 }
 
+export async function PATCH(req: Request) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
+  }
+
+  try {
+    const { bookingId, status } = await req.json();
+
+    if (!bookingId || !status) {
+      return NextResponse.json({ error: "bookingId и status обязательны" }, { status: 400 });
+    }
+
+    // Users can only cancel their own bookings
+    const booking = await prisma.booking.findFirst({
+      where: { id: bookingId, userId: user.id },
+    });
+
+    if (!booking) {
+      return NextResponse.json({ error: "Запись не найдена" }, { status: 404 });
+    }
+
+    if (booking.status === "completed" || booking.status === "cancelled") {
+      return NextResponse.json({ error: "Нельзя изменить завершённую или отменённую запись" }, { status: 400 });
+    }
+
+    const updated = await prisma.booking.update({
+      where: { id: bookingId },
+      data: { status },
+      include: {
+        serviceCenter: { select: { name: true, address: true } },
+        car: { select: { make: true, model: true, licensePlate: true } },
+      },
+    });
+
+    return NextResponse.json(updated);
+  } catch {
+    return NextResponse.json({ error: "Ошибка при обновлении записи" }, { status: 500 });
+  }
+}
+
 export async function POST(req: Request) {
   const user = await getCurrentUser();
   if (!user) {

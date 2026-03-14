@@ -304,7 +304,27 @@ function CarsTab({ cars }: { cars: CarItem[] }) {
   );
 }
 
-function BookingsTab({ bookings }: { bookings: BookingItem[] }) {
+function BookingsTab({ bookings: initialBookings }: { bookings: BookingItem[] }) {
+  const [bookings, setBookings] = useState(initialBookings);
+  const [cancelling, setCancelling] = useState<string | null>(null);
+
+  const handleCancel = async (bookingId: string) => {
+    if (!confirm("Вы уверены, что хотите отменить запись?")) return;
+    setCancelling(bookingId);
+    try {
+      const res = await fetch("/api/bookings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId, status: "cancelled" }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setBookings((prev) => prev.map((b) => (b.id === updated.id ? { ...b, status: updated.status } : b)));
+      }
+    } catch {}
+    setCancelling(null);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 mb-2">
@@ -324,24 +344,36 @@ function BookingsTab({ bookings }: { bookings: BookingItem[] }) {
       {bookings.map((b) => {
         const st = statusLabel[b.status] || statusLabel.pending;
         const d = new Date(b.date);
+        const canCancel = b.status === "pending" || b.status === "confirmed";
         return (
           <div key={b.id} className="card-surface">
             <div className="flex items-start justify-between flex-wrap gap-3 mb-3">
               <div>
                 <h4 className="font-medium text-text text-sm">{b.serviceType}</h4>
-                <p className="text-text-muted text-xs mt-0.5">{b.serviceCenter.name}</p>
+                <p className="text-text-muted text-xs mt-0.5">{b.serviceCenter.name} · {b.serviceCenter.address}</p>
               </div>
               <span className={`tag text-xs border ${st.class}`}>{st.text}</span>
             </div>
-            <div className="flex items-center gap-4 text-xs text-text-muted">
-              <span className="flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5" />
-                {d.toLocaleDateString("ru", { day: "numeric", month: "long" })} в {b.time}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Car className="w-3.5 h-3.5" />
-                {b.car.make} {b.car.model}
-              </span>
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-4 text-xs text-text-muted">
+                <span className="flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5" />
+                  {d.toLocaleDateString("ru", { day: "numeric", month: "long" })} в {b.time}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Car className="w-3.5 h-3.5" />
+                  {b.car.make} {b.car.model}
+                </span>
+              </div>
+              {canCancel && (
+                <button
+                  onClick={() => handleCancel(b.id)}
+                  disabled={cancelling === b.id}
+                  className="text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
+                >
+                  {cancelling === b.id ? "Отмена..." : "Отменить"}
+                </button>
+              )}
             </div>
           </div>
         );
@@ -351,26 +383,74 @@ function BookingsTab({ bookings }: { bookings: BookingItem[] }) {
 }
 
 function SettingsTab() {
+  const [settings, setSettings] = useState({
+    reminderTO: true,
+    reminderDocs: true,
+    promoServices: false,
+    emailNewsletter: false,
+    showProfile: true,
+    geolocation: true,
+  });
+  const [saved, setSaved] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const toggle = (key: keyof typeof settings) => {
+    setSettings((prev) => ({ ...prev, [key]: !prev[key] }));
+    setSaved(false);
+  };
+
+  const handleSaveSettings = () => {
+    // Store settings in localStorage
+    localStorage.setItem("autoeco_settings", JSON.stringify(settings));
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  // Load settings from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem("autoeco_settings");
+    if (stored) {
+      try {
+        setSettings(JSON.parse(stored));
+      } catch {}
+    }
+  }, []);
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/profile", { method: "DELETE" });
+      if (res.ok) {
+        signOut({ callbackUrl: "/" });
+      }
+    } catch {}
+    setDeleting(false);
+  };
+
+  const notifItems = [
+    { key: "reminderTO" as const, label: "Напоминания о ТО", desc: "Уведомления по пробегу и срокам" },
+    { key: "reminderDocs" as const, label: "Истечение документов", desc: "ОСАГО, техосмотр, регистрация" },
+    { key: "promoServices" as const, label: "Акции сервисов", desc: "Скидки и спецпредложения от партнёров" },
+    { key: "emailNewsletter" as const, label: "Email-рассылка", desc: "Полезные статьи и новости платформы" },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Notifications */}
       <div className="card-surface">
         <h3 className="font-semibold text-text mb-5">Уведомления</h3>
         <div className="space-y-4">
-          {[
-            { label: "Напоминания о ТО", desc: "Уведомления по пробегу и срокам", default: true },
-            { label: "Истечение документов", desc: "ОСАГО, техосмотр, регистрация", default: true },
-            { label: "Акции сервисов", desc: "Скидки и спецпредложения от партнёров", default: false },
-            { label: "Email-рассылка", desc: "Полезные статьи и новости платформы", default: false },
-          ].map((item) => (
-            <label key={item.label} className="flex items-start justify-between gap-4 cursor-pointer">
+          {notifItems.map((item) => (
+            <label key={item.key} className="flex items-start justify-between gap-4 cursor-pointer">
               <div>
                 <div className="text-sm text-text font-medium">{item.label}</div>
                 <div className="text-xs text-text-muted">{item.desc}</div>
               </div>
               <input
                 type="checkbox"
-                defaultChecked={item.default}
+                checked={settings[item.key]}
+                onChange={() => toggle(item.key)}
                 className="mt-1 w-5 h-5 rounded bg-bg-elevated border-prussian/[0.08] text-brand accent-brand cursor-pointer"
               />
             </label>
@@ -389,7 +469,8 @@ function SettingsTab() {
             </div>
             <input
               type="checkbox"
-              defaultChecked
+              checked={settings.showProfile}
+              onChange={() => toggle("showProfile")}
               className="mt-1 w-5 h-5 rounded bg-bg-elevated border-prussian/[0.08] text-brand accent-brand cursor-pointer"
             />
           </label>
@@ -400,22 +481,49 @@ function SettingsTab() {
             </div>
             <input
               type="checkbox"
-              defaultChecked
+              checked={settings.geolocation}
+              onChange={() => toggle("geolocation")}
               className="mt-1 w-5 h-5 rounded bg-bg-elevated border-prussian/[0.08] text-brand accent-brand cursor-pointer"
             />
           </label>
         </div>
       </div>
 
+      {/* Save button */}
+      <button onClick={handleSaveSettings} className="btn-primary text-sm">
+        {saved ? "Сохранено!" : "Сохранить настройки"}
+      </button>
+
       {/* Danger zone */}
       <div className="card-surface border-red-500/10">
         <h3 className="font-semibold text-red-400 mb-3">Опасная зона</h3>
         <p className="text-text-muted text-sm mb-4">
-          Удаление аккаунта приведёт к потере всех данных, включая историю ТО и записи.
+          Удаление аккаунта приведёт к потере всех данных, включая историю ТО и записи. Это действие необратимо.
         </p>
-        <button className="px-4 py-2 rounded-xl text-sm font-medium text-red-400 border border-red-500/20 hover:bg-red-500/10 transition-all">
-          Удалить аккаунт
-        </button>
+        {!confirmDelete ? (
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="px-4 py-2 rounded-xl text-sm font-medium text-red-400 border border-red-500/20 hover:bg-red-500/10 transition-all"
+          >
+            Удалить аккаунт
+          </button>
+        ) : (
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleDeleteAccount}
+              disabled={deleting}
+              className="px-4 py-2 rounded-xl text-sm font-medium text-white bg-red-500 hover:bg-red-600 transition-all disabled:opacity-50"
+            >
+              {deleting ? "Удаление..." : "Да, удалить навсегда"}
+            </button>
+            <button
+              onClick={() => setConfirmDelete(false)}
+              className="px-4 py-2 rounded-xl text-sm font-medium text-text-muted hover:text-text hover:bg-[var(--hover-bg)] transition-all"
+            >
+              Отмена
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
