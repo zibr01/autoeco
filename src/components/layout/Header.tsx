@@ -20,7 +20,6 @@ interface Notification {
 
 const navItems = [
   { href: "/dashboard", label: "Дашборд" },
-  { href: "/garage", label: "Гараж" },
   { href: "/services", label: "Сервисы" },
   { href: "/parts", label: "Запчасти" },
   { href: "/diagnostics", label: "Диагностика" },
@@ -353,48 +352,9 @@ export default function Header() {
               </div>
             )}
 
-            {/* Mobile burger */}
-            {isAuth && (
-              <button
-                className="md:hidden p-2 rounded-lg hover:bg-[var(--hover-bg)] transition-colors"
-                onClick={() => setMobileOpen(!mobileOpen)}
-                aria-label="Меню"
-              >
-                {mobileOpen ? (
-                  <X className="w-5 h-5 text-[var(--text)]" />
-                ) : (
-                  <Menu className="w-5 h-5 text-[var(--text)]" />
-                )}
-              </button>
-            )}
           </div>
         </div>
       </div>
-
-      {/* Mobile Nav */}
-      {isAuth && mobileOpen && (
-        <nav className="md:hidden border-t border-[var(--divider)]">
-          <div className="max-w-7xl mx-auto px-5 py-3 flex flex-col gap-1">
-            {navItems.map((item) => {
-              const isActive = pathname.startsWith(item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMobileOpen(false)}
-                  className={
-                    isActive
-                      ? "px-4 py-3 rounded-lg text-sm font-medium text-brand bg-brand/[0.06]"
-                      : "px-4 py-3 rounded-lg text-sm text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover-bg)] transition-all"
-                  }
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
-        </nav>
-      )}
     </header>
   );
 }

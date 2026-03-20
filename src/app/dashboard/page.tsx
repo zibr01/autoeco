@@ -183,12 +183,6 @@ const urgencyStyles: Record<string, { bg: string; border: string; dot: string; t
   low: { bg: "bg-emerald-500/5", border: "border-emerald-500/20", dot: "bg-emerald-400", text: "text-emerald-400" },
 };
 
-const quickActions = [
-  { href: "/garage", icon: <Car className="w-5 h-5" />, label: "Гараж", desc: "Мои автомобили", color: "text-brand-light", bg: "bg-brand/10" },
-  { href: "/services", icon: <Wrench className="w-5 h-5" />, label: "Сервисы", desc: "Найти автосервис", color: "text-emerald-500", bg: "bg-emerald-500/10" },
-  { href: "/diagnostics", icon: <MessageSquare className="w-5 h-5" />, label: "Диагностика", desc: "AI-помощник", color: "text-amber-500", bg: "bg-amber-500/10" },
-  { href: "/parts", icon: <ShoppingBag className="w-5 h-5" />, label: "Запчасти", desc: "Поиск и подбор", color: "text-sky-500", bg: "bg-sky-500/10" },
-];
 
 function formatTimeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -550,22 +544,6 @@ export default function DashboardPage() {
 
         {/* Right column */}
         <div className="space-y-4 sm:space-y-6">
-          {/* Quick Actions */}
-          <div className="card-surface">
-            <h2 className="font-semibold text-text mb-4">Быстрые действия</h2>
-            <div className="grid grid-cols-2 gap-3">
-              {quickActions.map((action) => (
-                <Link key={action.href} href={action.href} className="flex flex-col items-center gap-2 p-4 rounded-xl border border-prussian/[0.06] hover:border-brand/20 hover:shadow-sm transition-all group">
-                  <div className={`w-10 h-10 rounded-xl ${action.bg} flex items-center justify-center ${action.color} group-hover:scale-110 transition-transform`}>{action.icon}</div>
-                  <div className="text-center">
-                    <div className="text-sm font-medium text-text">{action.label}</div>
-                    <div className="text-[10px] text-text-dim">{action.desc}</div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-
           {/* Bookings */}
           <div className="card-surface">
             <div className="flex items-center justify-between mb-5">
