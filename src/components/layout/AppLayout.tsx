@@ -39,9 +39,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Floating feedback button */}
-      <div className="fixed bottom-6 right-6 z-40">
+      <div className="fixed bottom-20 sm:bottom-6 right-4 sm:right-6 z-40">
         {feedbackOpen && (
-          <div className="absolute bottom-14 right-0 w-80 bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl shadow-xl p-4 mb-2">
+          <div className="absolute bottom-14 right-0 w-72 sm:w-80 bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl shadow-xl p-4 mb-2">
             <div className="flex items-center justify-between mb-3">
               <h4 className="font-semibold text-text text-sm">Обратная связь</h4>
               <button onClick={() => setFeedbackOpen(false)} className="p-1 rounded-lg hover:bg-[var(--hover-bg)]">
