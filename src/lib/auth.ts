@@ -53,13 +53,16 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id;
         token.role = (user as unknown as Record<string, unknown>).role as string;
       }
-      // Fallback: if role missing in token, fetch from DB
-      if (token.id && !token.role) {
+      // Fallback: if role or subscription missing in token, fetch from DB
+      if (token.id && (!token.role || !token.subscription)) {
         const dbUser = await prisma.user.findUnique({
           where: { id: token.id as string },
-          select: { role: true },
+          select: { role: true, subscription: true },
         });
-        if (dbUser) token.role = dbUser.role;
+        if (dbUser) {
+          token.role = dbUser.role;
+          token.subscription = dbUser.subscription;
+        }
       }
       return token;
     },
@@ -67,6 +70,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role;
+        session.user.subscription = token.subscription;
       }
       return session;
     },

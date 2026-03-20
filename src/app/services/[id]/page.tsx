@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import AppLayout from "@/components/layout/AppLayout";
 import {
   ChevronLeft,
+  ChevronRight,
   Star,
   MapPin,
   Clock,
@@ -15,6 +16,11 @@ import {
   CheckCircle2,
   ArrowRight,
   Loader2,
+  Heart,
+  Building2,
+  Ticket,
+  MessageSquare,
+  X,
 } from "lucide-react";
 
 const serviceTypeColors: Record<string, string> = {
@@ -26,18 +32,12 @@ const serviceTypeColors: Record<string, string> = {
   electric: "bg-yellow-500/10 text-yellow-600 border-yellow-500/15",
 };
 
-const today = new Date();
-const nextDays = Array.from({ length: 7 }, (_, i) => {
-  const d = new Date(today);
-  d.setDate(today.getDate() + i);
-  return d;
-});
-
 const dayLabels = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
 const monthLabels = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
 
 interface ServiceData {
   id: string;
+  ownerId: string | null;
   name: string;
   type: string;
   typeName: string;
@@ -52,7 +52,7 @@ interface ServiceData {
   photos: string;
   verified: boolean;
   priceList: { id: string; name: string; price: string }[];
-  reviews: { id: string; author: string; avatar: string; rating: number; date: string; text: string; carModel: string }[];
+  reviews: { id: string; author: string; avatar: string; rating: number; date: string; text: string; carModel: string; reply?: { text: string; createdAt: string } | null }[];
   timeSlots: { id: string; time: string; available: boolean }[];
 }
 
@@ -81,6 +81,24 @@ export default function ServiceProfilePage() {
   const [nameError, setNameError] = useState("");
   const [booked, setBooked] = useState(false);
   const [booking, setBooking] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [favLoading, setFavLoading] = useState(false);
+  const [promoCode, setPromoCode] = useState("");
+  const [promoResult, setPromoResult] = useState<{ valid: boolean; discountPercent?: number; description?: string; error?: string } | null>(null);
+  const [promoChecking, setPromoChecking] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const nextDays = useMemo(() => {
+    const today = new Date();
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      return d;
+    });
+  }, []);
+
+  const [similarServices, setSimilarServices] = useState<{
+    id: string; name: string; typeName: string; type: string; rating: number; reviewCount: number; image: string; address: string;
+  }[]>([]);
 
   useEffect(() => {
     fetch(`/api/services/${id}`)
@@ -97,6 +115,18 @@ export default function ServiceProfilePage() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  // Fetch similar services once service loads
+  useEffect(() => {
+    if (service) {
+      fetch(`/api/services?type=${service.type}`)
+        .then((r) => r.json())
+        .then((data: { id: string; name: string; typeName: string; type: string; rating: number; reviewCount: number; image: string; address: string }[]) => {
+          setSimilarServices(data.filter((s) => s.id !== id).slice(0, 3));
+        })
+        .catch(() => {});
+    }
+  }, [service, id]);
+
   useEffect(() => {
     if (authStatus === "authenticated") {
       fetch("/api/cars")
@@ -106,11 +136,52 @@ export default function ServiceProfilePage() {
           if (data.length > 0) setSelectedCarId(data[0].id);
         })
         .catch(() => {});
+      fetch("/api/favorites")
+        .then((r) => r.json())
+        .then((favs: { serviceCenterId: string }[]) => {
+          setIsFavorite(favs.some((f) => f.serviceCenterId === id));
+        })
+        .catch(() => {});
       if (session?.user?.name) {
         setName(session.user.name);
       }
     }
-  }, [authStatus, session]);
+  }, [authStatus, session, id]);
+
+  const toggleFavorite = async () => {
+    if (authStatus !== "authenticated") { router.push("/auth/login"); return; }
+    setFavLoading(true);
+    try {
+      if (isFavorite) {
+        await fetch(`/api/favorites/${id}`, { method: "DELETE" });
+        setIsFavorite(false);
+      } else {
+        await fetch("/api/favorites", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ serviceCenterId: id }),
+        });
+        setIsFavorite(true);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setFavLoading(false);
+    }
+  };
+
+  const checkPromo = async () => {
+    if (!promoCode.trim()) return;
+    setPromoChecking(true);
+    const res = await fetch("/api/promos/check", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: promoCode.trim(), serviceCenterId: id }),
+    });
+    const data = await res.json();
+    setPromoResult(data);
+    setPromoChecking(false);
+  };
 
   const parseJson = (str: string): string[] => {
     try { return JSON.parse(str); } catch { return []; }
@@ -163,11 +234,16 @@ export default function ServiceProfilePage() {
       return;
     }
 
-    if (!selectedCarId) return;
+    if (!selectedCarId) {
+      alert("Сначала добавьте автомобиль в гараж");
+      router.push("/garage");
+      return;
+    }
 
     setBooking(true);
     try {
-      const bookingDate = nextDays[selectedDay];
+      const d = nextDays[selectedDay];
+      const bookingDate = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
       const res = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -303,14 +379,28 @@ export default function ServiceProfilePage() {
                   {service.typeName}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1">
-                  <Star className="w-5 h-5 text-accent fill-accent" />
-                  <span className="text-xl font-bold text-text">{service.rating}</span>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={toggleFavorite}
+                  disabled={favLoading}
+                  className={`p-2.5 rounded-xl border transition-all ${
+                    isFavorite
+                      ? "bg-red-500/10 border-red-500/20 text-red-400"
+                      : "border-prussian/[0.08] text-text-dim hover:border-red-500/20 hover:text-red-400"
+                  }`}
+                  title={isFavorite ? "Убрать из избранного" : "Добавить в избранное"}
+                >
+                  <Heart className={`w-5 h-5 ${isFavorite ? "fill-current" : ""}`} />
+                </button>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    <Star className="w-5 h-5 text-accent fill-accent" />
+                    <span className="text-xl font-bold text-text">{service.rating}</span>
+                  </div>
+                  <span className="text-text-muted text-sm">
+                    ({service.reviewCount} отзывов)
+                  </span>
                 </div>
-                <span className="text-text-muted text-sm">
-                  ({service.reviewCount} отзывов)
-                </span>
               </div>
             </div>
 
@@ -321,13 +411,40 @@ export default function ServiceProfilePage() {
               </div>
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-brand-light flex-shrink-0" />
-                {service.hours}
+                <span>{service.hours}</span>
+                {(() => {
+                  const hour = new Date().getHours();
+                  const hoursMatch = service.hours.match(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/);
+                  if (hoursMatch) {
+                    const openH = parseInt(hoursMatch[1]);
+                    const closeH = parseInt(hoursMatch[3]);
+                    const isOpen = hour >= openH && hour < closeH;
+                    return (
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                        isOpen ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+                      }`}>
+                        {isOpen ? "Открыто" : "Закрыто"}
+                      </span>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
               <div className="flex items-center gap-2">
                 <Phone className="w-4 h-4 text-brand-light flex-shrink-0" />
                 {service.phone}
               </div>
             </div>
+
+            {service.ownerId && authStatus === "authenticated" && (
+              <Link
+                href={`/messages?with=${service.ownerId}&name=${encodeURIComponent(service.name)}`}
+                className="inline-flex items-center gap-2 btn-secondary text-sm !py-2 mb-4"
+              >
+                <MessageSquare className="w-4 h-4" />
+                Написать сервису
+              </Link>
+            )}
 
             <p className="text-text-muted text-sm leading-relaxed">{service.description}</p>
           </div>
@@ -363,10 +480,60 @@ export default function ServiceProfilePage() {
               <h2 className="font-semibold text-text mb-4">Галерея работ</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {photosList.map((photo: string, i: number) => (
-                  <div key={i} className="aspect-video rounded-xl overflow-hidden bg-bg-elevated">
+                  <button
+                    key={i}
+                    onClick={() => setLightboxIndex(i)}
+                    className="aspect-video rounded-xl overflow-hidden bg-bg-elevated cursor-pointer hover:opacity-90 transition-opacity"
+                  >
                     <img src={photo} alt="Работа" className="w-full h-full object-cover" />
-                  </div>
+                  </button>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Lightbox */}
+          {lightboxIndex !== null && photosList.length > 0 && (
+            <div
+              className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center"
+              onClick={() => setLightboxIndex(null)}
+            >
+              <button
+                className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors z-10"
+                onClick={() => setLightboxIndex(null)}
+              >
+                <X className="w-8 h-8" />
+              </button>
+              {photosList.length > 1 && (
+                <>
+                  <button
+                    className="absolute left-4 text-white/70 hover:text-white transition-colors z-10 p-2"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLightboxIndex((lightboxIndex - 1 + photosList.length) % photosList.length);
+                    }}
+                  >
+                    <ChevronLeft className="w-8 h-8" />
+                  </button>
+                  <button
+                    className="absolute right-14 text-white/70 hover:text-white transition-colors z-10 p-2"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLightboxIndex((lightboxIndex + 1) % photosList.length);
+                    }}
+                  >
+                    <ChevronRight className="w-8 h-8" />
+                  </button>
+                </>
+              )}
+              <img
+                src={photosList[lightboxIndex]}
+                alt="Фото"
+                className="max-h-[85vh] max-w-[90vw] object-contain rounded-xl"
+                onClick={(e) => e.stopPropagation()}
+              />
+              <div className="absolute bottom-4 text-white/50 text-sm">
+                {lightboxIndex + 1} / {photosList.length}
               </div>
             </div>
           )}
@@ -400,7 +567,52 @@ export default function ServiceProfilePage() {
                       </div>
                     </div>
                     <p className="text-text-muted text-sm leading-relaxed pl-12">{review.text}</p>
+                    {review.reply && (
+                      <div className="ml-12 mt-2 pl-4 border-l-2 border-brand/20">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Building2 className="w-3.5 h-3.5 text-brand" />
+                          <span className="text-xs font-medium text-brand">Ответ сервиса</span>
+                        </div>
+                        <p className="text-sm text-text-muted">{review.reply.text}</p>
+                      </div>
+                    )}
                   </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Similar services */}
+          {similarServices.length > 0 && (
+            <div className="card-surface">
+              <h2 className="font-semibold text-text mb-4">Похожие сервисы</h2>
+              <div className="grid sm:grid-cols-3 gap-3">
+                {similarServices.map((s) => (
+                  <Link
+                    key={s.id}
+                    href={`/services/${s.id}`}
+                    className="rounded-xl border border-[var(--border)] hover:border-brand/30 hover:-translate-y-0.5 transition-all overflow-hidden group"
+                  >
+                    <div className="h-28 bg-bg-elevated overflow-hidden">
+                      <img src={s.image} alt={s.name} className="w-full h-full object-cover" />
+                    </div>
+                    <div className="p-3">
+                      <h3 className="text-sm font-medium text-text truncate group-hover:text-brand-light transition-colors">
+                        {s.name}
+                      </h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs text-text-muted">{s.typeName}</span>
+                        <span className="flex items-center gap-0.5 text-xs ml-auto">
+                          <Star className="w-3 h-3 text-accent fill-accent" />
+                          <span className="font-medium text-text">{s.rating}</span>
+                          <span className="text-text-dim">({s.reviewCount})</span>
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 mt-1.5 text-xs text-text-dim">
+                        <MapPin className="w-3 h-3" />
+                        <span className="truncate">{s.address}</span>
+                      </div>
+                    </div>
+                  </Link>
                 ))}
               </div>
             </div>
@@ -447,6 +659,37 @@ export default function ServiceProfilePage() {
                 ))}
               </select>
             </div>
+
+            {/* Club pricing banner */}
+            {session?.user && (() => {
+              const isPremium = session.user.subscription === "PREMIUM";
+              const priceItem = service.priceList.find(p => p.name === selectedService) || service.priceList[0];
+              const numericPrice = priceItem ? parseInt(priceItem.price.replace(/\D/g, "")) : 0;
+              const clubPrice = numericPrice ? Math.round(numericPrice * 0.75) : 0;
+              const savings = numericPrice ? numericPrice - clubPrice : 0;
+
+              if (isPremium && numericPrice > 0) {
+                return (
+                  <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider bg-emerald-500 text-white px-2 py-0.5 rounded-full">Клубная цена</span>
+                      <span className="text-text-muted line-through text-sm">{numericPrice.toLocaleString()} ₽</span>
+                      <span className="text-emerald-600 font-bold text-base">{clubPrice.toLocaleString()} ₽</span>
+                    </div>
+                    <p className="text-xs text-emerald-600">Вы экономите {savings.toLocaleString()} ₽ · Скидка применяется автоматически</p>
+                  </div>
+                );
+              }
+              if (!isPremium) {
+                return (
+                  <div className="mb-4 rounded-xl border border-brand/20 bg-brand/[0.04] p-3 flex items-center justify-between gap-2">
+                    <p className="text-xs text-text-muted">Клубники экономят ~25% на этом сервисе</p>
+                    <Link href="/subscription" className="text-xs font-semibold text-brand hover:underline whitespace-nowrap">Оформить карту →</Link>
+                  </div>
+                );
+              }
+              return null;
+            })()}
 
             {/* Date picker */}
             <div className="mb-4">
@@ -520,6 +763,37 @@ export default function ServiceProfilePage() {
                 />
                 {phoneError && <p className="text-xs text-red-400 mt-1">{phoneError}</p>}
               </div>
+            </div>
+
+            {/* Promo code */}
+            <div className="mb-5">
+              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Промокод</label>
+              <div className="flex gap-2">
+                <input
+                  className="input-field text-sm flex-1"
+                  placeholder="Введите код"
+                  value={promoCode}
+                  onChange={(e) => { setPromoCode(e.target.value.toUpperCase()); setPromoResult(null); }}
+                />
+                <button
+                  onClick={checkPromo}
+                  disabled={promoChecking || !promoCode.trim()}
+                  className="px-3 py-2 rounded-xl bg-brand/10 text-brand text-sm font-medium hover:bg-brand/20 transition-colors disabled:opacity-40"
+                >
+                  <Ticket className="w-4 h-4" />
+                </button>
+              </div>
+              {promoResult && (
+                <div className={`mt-2 text-xs px-3 py-2 rounded-xl ${
+                  promoResult.valid
+                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                    : "bg-red-500/10 text-red-400 border border-red-500/20"
+                }`}>
+                  {promoResult.valid
+                    ? `Скидка ${promoResult.discountPercent}% — ${promoResult.description}`
+                    : promoResult.error}
+                </div>
+              )}
             </div>
 
             <button

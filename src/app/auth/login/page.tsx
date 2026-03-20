@@ -19,21 +19,25 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
-    const result = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
+    try {
+      const result = await signIn("credentials", {
+        email: email.trim().toLowerCase(),
+        password,
+        redirect: false,
+      });
 
-    setLoading(false);
-
-    if (result?.error) {
-      setError("Неверный email или пароль");
-    } else {
-      const session = await getSession();
-      const dest = session?.user?.role === "BUSINESS" ? "/business" : "/dashboard";
-      router.push(dest);
-      router.refresh();
+      if (result?.error) {
+        setError("Неверный email или пароль");
+        setLoading(false);
+      } else {
+        router.refresh();
+        const session = await getSession();
+        const dest = session?.user?.role === "BUSINESS" ? "/business" : "/dashboard";
+        router.push(dest);
+      }
+    } catch {
+      setError("Ошибка сети. Попробуйте позже.");
+      setLoading(false);
     }
   };
 

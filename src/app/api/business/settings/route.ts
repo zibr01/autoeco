@@ -20,8 +20,10 @@ export async function GET() {
     hours: sc.hours,
     description: sc.description,
     priceFrom: sc.priceFrom,
+    clubDiscount: sc.clubDiscount ?? 20,
     tags: JSON.parse(sc.tags || "[]"),
     services: JSON.parse(sc.services || "[]"),
+    photos: JSON.parse(sc.photos || "[]"),
     verified: sc.verified,
   });
 }
@@ -38,7 +40,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   const body = await req.json();
-  const allowed = ["name", "address", "district", "city", "phone", "hours", "description", "priceFrom"];
+  const allowed = ["name", "address", "district", "city", "phone", "hours", "description", "priceFrom", "clubDiscount"];
   const data: Record<string, unknown> = {};
 
   for (const key of allowed) {
@@ -52,6 +54,9 @@ export async function PATCH(req: NextRequest) {
   }
   if (body.services) {
     data.services = JSON.stringify(body.services);
+  }
+  if (body.photos) {
+    data.photos = JSON.stringify(body.photos);
   }
 
   const updated = await prisma.serviceCenter.update({

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getBusinessServiceCenter } from "@/lib/business-helpers";
+import { createNotification } from "@/lib/notifications";
 
 export async function GET(req: NextRequest) {
   const sc = await getBusinessServiceCenter();
@@ -68,6 +69,23 @@ export async function PATCH(req: NextRequest) {
       car: { select: { make: true, model: true, year: true, licensePlate: true } },
     },
   });
+
+  const statusMessages: Record<string, { type: string; title: string }> = {
+    confirmed: { type: "booking_confirmed", title: "Запись подтверждена" },
+    cancelled: { type: "booking_cancelled", title: "Запись отменена сервисом" },
+    completed: { type: "booking_confirmed", title: "Визит завершён" },
+  };
+
+  const msg = statusMessages[status];
+  if (msg) {
+    await createNotification({
+      userId: booking.userId,
+      type: msg.type,
+      title: msg.title,
+      message: `${booking.serviceType} · ${sc.name}`,
+      link: `/services/${sc.id}`,
+    });
+  }
 
   return NextResponse.json(updated);
 }

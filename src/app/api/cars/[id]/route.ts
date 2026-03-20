@@ -43,7 +43,14 @@ export async function PATCH(
     return NextResponse.json({ error: "Авто не найдено" }, { status: 404 });
   }
 
-  const data = await req.json();
+  const body = await req.json();
+
+  // Only allow updating safe fields
+  const allowed = ["make", "model", "year", "vin", "licensePlate", "mileage", "engine", "transmission", "fuelType", "image", "health", "color", "nextService"] as const;
+  const data: Record<string, unknown> = {};
+  for (const key of allowed) {
+    if (body[key] !== undefined) data[key] = body[key];
+  }
 
   const updated = await prisma.car.update({
     where: { id: params.id },

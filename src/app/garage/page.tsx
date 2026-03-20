@@ -22,6 +22,12 @@ import {
   AlertCircle,
   Search,
   Check,
+  ClipboardList,
+  Calendar,
+  DollarSign,
+  Gauge,
+  SkipForward,
+  Save,
 } from "lucide-react";
 
 interface ReminderData {
@@ -109,7 +115,7 @@ export default function GaragePage() {
         <div>
           <h1 className="text-3xl font-bold text-text mb-1">Мой гараж</h1>
           <p className="text-text-muted">
-            {session?.user?.name ? `Привет, ${session.user.name}` : "Привет"} 👋 · {carsData.length} автомобил{carsData.length === 1 ? "ь" : carsData.length < 5 ? "я" : "ей"}
+            {session?.user?.name ? `Привет, ${session.user.name}` : "Привет"} 👋 · {carsData.length} автомобил{(() => { const n = carsData.length % 100; const n1 = n % 10; if (n > 10 && n < 20) return "ей"; if (n1 === 1) return "ь"; if (n1 >= 2 && n1 <= 4) return "я"; return "ей"; })()}
           </p>
         </div>
         <button onClick={() => setShowAddModal(true)} className="btn-primary flex items-center gap-2">
@@ -129,7 +135,13 @@ export default function GaragePage() {
                 <div className="card-surface hover:border-brand/30 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group">
                   <div className="flex gap-5">
                     <div className="w-32 h-24 rounded-xl overflow-hidden flex-shrink-0 bg-bg-elevated">
-                      <img src={car.image} alt={`${car.make} ${car.model}`} className="w-full h-full object-cover" />
+                      {car.image ? (
+                        <img src={car.image} alt={`${car.make} ${car.model}`} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-text-dim">
+                          <Car className="w-8 h-8 opacity-30" />
+                        </div>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between mb-1">
@@ -227,8 +239,7 @@ export default function GaragePage() {
 
       {showAddModal && (
         <AddCarModal
-          onClose={() => setShowAddModal(false)}
-          onAdded={() => {
+          onClose={() => {
             setShowAddModal(false);
             fetchCars();
           }}
@@ -580,7 +591,259 @@ function AutocompleteInput({
 
 // ── AddCarModal with smart search ──
 
-function AddCarModal({ onClose, onAdded }: { onClose: () => void; onAdded: () => void }) {
+// ── Maintenance template items ──
+
+interface MaintenanceTemplateItem {
+  id: string;
+  type: string;
+  label: string;
+  icon: typeof Wrench;
+  enabled: boolean;
+  date: string;
+  mileage: string;
+  cost: string;
+}
+
+const defaultMaintenanceTemplates = (): MaintenanceTemplateItem[] => [
+  { id: "oil", type: "oil_change", label: "Замена масла", icon: Droplets, enabled: false, date: "", mileage: "", cost: "" },
+  { id: "filters", type: "filter_change", label: "Замена фильтров", icon: Wind, enabled: false, date: "", mileage: "", cost: "" },
+  { id: "brakes", type: "brake_pads", label: "Замена тормозных колодок", icon: Disc, enabled: false, date: "", mileage: "", cost: "" },
+  { id: "scheduled", type: "scheduled_maintenance", label: "Плановое ТО", icon: Wrench, enabled: false, date: "", mileage: "", cost: "" },
+  { id: "tires", type: "tire_change", label: "Замена шин", icon: Shield, enabled: false, date: "", mileage: "", cost: "" },
+];
+
+// ── Maintenance Template Step ──
+
+function MaintenanceTemplateStep({
+  carId,
+  carMileage,
+  onClose,
+}: {
+  carId: string;
+  carMileage: number;
+  onClose: () => void;
+}) {
+  const [items, setItems] = useState<MaintenanceTemplateItem[]>(defaultMaintenanceTemplates());
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const updateItem = (id: string, field: keyof MaintenanceTemplateItem, value: string | boolean) => {
+    setItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, [field]: value } : item))
+    );
+  };
+
+  const enabledItems = items.filter((i) => i.enabled);
+
+  const handleSave = async () => {
+    setError("");
+
+    const toSave = enabledItems.filter((i) => i.date);
+    if (toSave.length === 0) {
+      setError("Укажите дату хотя бы для одной записи");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const records = toSave.map((item) => ({
+        date: item.date,
+        mileage: item.mileage ? Number(item.mileage) : carMileage,
+        type: item.type,
+        description: item.label,
+        cost: item.cost ? Number(item.cost) : 0,
+        serviceName: "Из шаблона ТО",
+      }));
+
+      const res = await fetch(`/api/cars/${carId}/maintenance`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(records),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || "Ошибка при сохранении");
+        setSaving(false);
+        return;
+      }
+
+      onClose();
+    } catch {
+      setError("Ошибка сети");
+      setSaving(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="sticky top-0 bg-[var(--bg-card)] flex items-center justify-between p-5 border-b border-[var(--border)] z-10">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-brand/10 flex items-center justify-center">
+            <ClipboardList className="w-4 h-4 text-brand" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-text">Шаблон журнала ТО</h2>
+            <p className="text-xs text-text-muted">Заполните историю обслуживания</p>
+          </div>
+        </div>
+        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--hover-bg)] transition-colors">
+          <X className="w-5 h-5 text-text-muted" />
+        </button>
+      </div>
+
+      <div className="p-5 space-y-3">
+        {/* Step indicator */}
+        <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-1.5">
+            <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center">
+              <Check className="w-3.5 h-3.5 text-white" />
+            </div>
+            <span className="text-xs text-text-muted">Авто добавлено</span>
+          </div>
+          <div className="flex-1 h-px bg-[var(--border)]" />
+          <div className="flex items-center gap-1.5">
+            <div className="w-6 h-6 rounded-full bg-brand flex items-center justify-center">
+              <span className="text-xs text-white font-bold">2</span>
+            </div>
+            <span className="text-xs text-brand font-medium">История ТО</span>
+          </div>
+        </div>
+
+        <p className="text-sm text-text-muted">
+          Отметьте работы, которые уже выполнялись, и укажите когда. Это поможет отслеживать состояние автомобиля.
+        </p>
+
+        {error && (
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/5 border border-red-500/15">
+            <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+            <span className="text-sm text-red-400">{error}</span>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          {items.map((item) => {
+            const Icon = item.icon;
+            return (
+              <div
+                key={item.id}
+                className={`rounded-xl border transition-all duration-200 ${
+                  item.enabled
+                    ? "border-brand/20 bg-brand/[0.03]"
+                    : "border-[var(--border)] bg-[var(--bg-card)]"
+                }`}
+              >
+                {/* Toggle row */}
+                <button
+                  type="button"
+                  onClick={() => updateItem(item.id, "enabled", !item.enabled)}
+                  className="w-full flex items-center gap-3 p-3.5 text-left"
+                >
+                  <div
+                    className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${
+                      item.enabled
+                        ? "bg-brand border-brand"
+                        : "border-[var(--input-border)] bg-[var(--input-bg)]"
+                    }`}
+                  >
+                    {item.enabled && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                  <Icon className={`w-4 h-4 ${item.enabled ? "text-brand" : "text-text-dim"}`} />
+                  <span className={`text-sm font-medium ${item.enabled ? "text-text" : "text-text-muted"}`}>
+                    {item.label}
+                  </span>
+                </button>
+
+                {/* Expanded fields */}
+                {item.enabled && (
+                  <div className="px-3.5 pb-3.5 pt-0 grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-[10px] text-text-dim uppercase tracking-wider mb-1 flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        Дата *
+                      </label>
+                      <input
+                        type="date"
+                        value={item.date}
+                        onChange={(e) => updateItem(item.id, "date", e.target.value)}
+                        className="input-field text-xs !py-2 !px-2.5"
+                        max={new Date().toISOString().split("T")[0]}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-text-dim uppercase tracking-wider mb-1 flex items-center gap-1">
+                        <Gauge className="w-3 h-3" />
+                        Пробег, км
+                      </label>
+                      <input
+                        type="number"
+                        value={item.mileage}
+                        onChange={(e) => updateItem(item.id, "mileage", e.target.value)}
+                        className="input-field text-xs !py-2 !px-2.5"
+                        placeholder={String(carMileage)}
+                        min={0}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-text-dim uppercase tracking-wider mb-1 flex items-center gap-1">
+                        <DollarSign className="w-3 h-3" />
+                        Стоимость
+                      </label>
+                      <input
+                        type="number"
+                        value={item.cost}
+                        onChange={(e) => updateItem(item.id, "cost", e.target.value)}
+                        className="input-field text-xs !py-2 !px-2.5"
+                        placeholder="0"
+                        min={0}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex gap-3 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="btn-ghost flex-1 justify-center text-sm !py-3"
+          >
+            <SkipForward className="w-4 h-4" />
+            Пропустить
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || enabledItems.length === 0}
+            className="btn-primary flex-1 justify-center text-sm !py-3 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Сохраняем...
+              </span>
+            ) : (
+              <span className="flex items-center gap-2">
+                <Save className="w-4 h-4" />
+                Сохранить ({enabledItems.length})
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── AddCarModal with smart search + maintenance template ──
+
+function AddCarModal({ onClose }: { onClose: () => void }) {
+  const [step, setStep] = useState<"car" | "maintenance">("car");
+  const [createdCarId, setCreatedCarId] = useState<string | null>(null);
+  const [createdCarMileage, setCreatedCarMileage] = useState(0);
   const [form, setForm] = useState({
     make: "",
     model: "",
@@ -594,9 +857,54 @@ function AddCarModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =>
     licensePlate: "",
   });
   const [loading, setLoading] = useState(false);
+  const [vinDecoding, setVinDecoding] = useState(false);
+  const [vinDecoded, setVinDecoded] = useState(false);
   const [error, setError] = useState("");
   const [selectedMake, setSelectedMake] = useState<CarMakeInfo | null>(null);
   const [selectedModel, setSelectedModel] = useState<CarModelInfo | null>(null);
+
+  // VIN Decoder
+  const decodeVin = async () => {
+    if (form.vin.length !== 17) {
+      setError("VIN должен содержать 17 символов");
+      return;
+    }
+    setVinDecoding(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/vin/decode?vin=${form.vin}`);
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "VIN не найден");
+        setVinDecoding(false);
+        return;
+      }
+      // Auto-fill form with decoded data
+      setForm((prev) => ({
+        ...prev,
+        make: data.make || prev.make,
+        model: data.model || prev.model,
+        year: data.year || prev.year,
+        engine: data.engine || prev.engine,
+        fuelType: data.fuelType || prev.fuelType,
+        transmission: data.transmission || prev.transmission,
+      }));
+      // Update autocomplete state
+      if (data.make) {
+        const found = carDatabase.find((m) => m.name.toLowerCase() === data.make.toLowerCase());
+        setSelectedMake(found || null);
+        if (found && data.model) {
+          const modelFound = found.models.find((m) => m.name.toLowerCase() === data.model.toLowerCase());
+          setSelectedModel(modelFound || null);
+        }
+      }
+      setVinDecoded(true);
+      setVinDecoding(false);
+    } catch {
+      setError("Ошибка при декодировании VIN");
+      setVinDecoding(false);
+    }
+  };
 
   const update = (field: string, value: string | number) => {
     setForm((p) => ({ ...p, [field]: value }));
@@ -681,7 +989,11 @@ function AddCarModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =>
         return;
       }
 
-      onAdded();
+      const car = await res.json();
+      setCreatedCarId(car.id);
+      setCreatedCarMileage(Number(form.mileage) || 0);
+      setStep("maintenance");
+      setLoading(false);
     } catch {
       setError("Ошибка сети");
       setLoading(false);
@@ -692,130 +1004,161 @@ function AddCarModal({ onClose, onAdded }: { onClose: () => void; onAdded: () =>
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl">
-        <div className="sticky top-0 bg-[var(--bg-card)] flex items-center justify-between p-5 border-b border-[var(--border)] z-10">
-          <h2 className="text-lg font-bold text-text">Добавить автомобиль</h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--hover-bg)] transition-colors">
-            <X className="w-5 h-5 text-text-muted" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          {error && (
-            <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/5 border border-red-500/15">
-              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
-              <span className="text-sm text-red-400">{error}</span>
+        {step === "maintenance" && createdCarId ? (
+          <MaintenanceTemplateStep
+            carId={createdCarId}
+            carMileage={createdCarMileage}
+            onClose={onClose}
+          />
+        ) : (
+          <>
+            <div className="sticky top-0 bg-[var(--bg-card)] flex items-center justify-between p-5 border-b border-[var(--border)] z-10">
+              <h2 className="text-lg font-bold text-text">Добавить автомобиль</h2>
+              <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--hover-bg)] transition-colors">
+                <X className="w-5 h-5 text-text-muted" />
+              </button>
             </div>
-          )}
 
-          {/* Smart search: Make & Model */}
-          <div className="grid grid-cols-2 gap-3">
-            <AutocompleteInput
-              label="Марка *"
-              value={form.make}
-              onChange={handleMakeChange}
-              suggestions={makeSuggestions}
-              placeholder="Начните вводить..."
-              required
-            />
-            <AutocompleteInput
-              label="Модель *"
-              value={form.model}
-              onChange={handleModelChange}
-              suggestions={modelSuggestions}
-              placeholder={selectedMake ? "Выберите модель..." : "Сначала марку"}
-              required
-              disabled={!form.make}
-            />
-          </div>
+            <form onSubmit={handleSubmit} className="p-5 space-y-4">
+              {error && (
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/5 border border-red-500/15">
+                  <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                  <span className="text-sm text-red-400">{error}</span>
+                </div>
+              )}
 
-          {/* Autofill hint */}
-          {selectedModel && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-brand/[0.06] border border-brand/[0.12]">
-              <Check className="w-4 h-4 text-brand flex-shrink-0" />
-              <span className="text-xs text-brand">
-                {selectedMake?.name} {selectedModel.name} — данные заполнены автоматически
-              </span>
-            </div>
-          )}
+              {/* Smart search: Make & Model */}
+              <div className="grid grid-cols-2 gap-3">
+                <AutocompleteInput
+                  label="Марка *"
+                  value={form.make}
+                  onChange={handleMakeChange}
+                  suggestions={makeSuggestions}
+                  placeholder="Начните вводить..."
+                  required
+                />
+                <AutocompleteInput
+                  label="Модель *"
+                  value={form.model}
+                  onChange={handleModelChange}
+                  suggestions={modelSuggestions}
+                  placeholder={selectedMake ? "Выберите модель..." : "Сначала марку"}
+                  required
+                  disabled={!form.make}
+                />
+              </div>
 
-          <div>
-            <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">VIN *</label>
-            <input type="text" value={form.vin} onChange={(e) => update("vin", e.target.value.toUpperCase())} className="input-field text-sm font-mono" placeholder="WBA53AH08MWX12345" required maxLength={17} />
-          </div>
+              {/* Autofill hint */}
+              {selectedModel && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-brand/[0.06] border border-brand/[0.12]">
+                  <Check className="w-4 h-4 text-brand flex-shrink-0" />
+                  <span className="text-xs text-brand">
+                    {selectedMake?.name} {selectedModel.name} — данные заполнены автоматически
+                  </span>
+                </div>
+              )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Год выпуска</label>
-              <input type="number" value={form.year} onChange={(e) => update("year", e.target.value)} className="input-field text-sm" min={selectedModel?.years[0] || 1990} max={selectedModel?.years[1] || 2030} />
-            </div>
-            <div>
-              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Пробег (км)</label>
-              <input type="number" value={form.mileage} onChange={(e) => update("mileage", e.target.value)} className="input-field text-sm" min={0} />
-            </div>
-          </div>
+              <div>
+                <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">VIN *</label>
+                <div className="flex gap-2">
+                  <input type="text" value={form.vin} onChange={(e) => { update("vin", e.target.value.toUpperCase()); setVinDecoded(false); }} className="input-field text-sm font-mono flex-1" placeholder="WBA53AH08MWX12345" required maxLength={17} />
+                  <button
+                    type="button"
+                    onClick={decodeVin}
+                    disabled={vinDecoding || form.vin.length !== 17}
+                    className="btn-secondary text-xs px-3 py-2 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+                  >
+                    {vinDecoding ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Search className="w-3.5 h-3.5" />
+                    )}
+                    {vinDecoding ? "Ищем..." : "Расшифровать"}
+                  </button>
+                </div>
+                {vinDecoded && (
+                  <div className="flex items-center gap-2 mt-2 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                    <Check className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                    <span className="text-xs text-emerald-600 dark:text-emerald-400">VIN расшифрован — данные заполнены автоматически</span>
+                  </div>
+                )}
+              </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Цвет</label>
-              <input type="text" value={form.color} onChange={(e) => update("color", e.target.value)} className="input-field text-sm" placeholder="Серый металлик" />
-            </div>
-            <div>
-              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Госномер</label>
-              <input type="text" value={form.licensePlate} onChange={(e) => update("licensePlate", e.target.value.toUpperCase())} className="input-field text-sm" placeholder="А777БВ 77" />
-            </div>
-          </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Год выпуска</label>
+                  <input type="number" value={form.year} onChange={(e) => update("year", e.target.value)} className="input-field text-sm" min={selectedModel?.years[0] || 1990} max={selectedModel?.years[1] || 2030} />
+                </div>
+                <div>
+                  <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Пробег (км)</label>
+                  <input type="number" value={form.mileage} onChange={(e) => update("mileage", e.target.value)} className="input-field text-sm" min={0} />
+                </div>
+              </div>
 
-          {/* Engine — smart select or free input */}
-          <div>
-            <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Двигатель</label>
-            {engineOptions.length > 0 ? (
-              <select value={form.engine} onChange={(e) => update("engine", e.target.value)} className="input-field text-sm">
-                {engineOptions.map((eng) => (
-                  <option key={eng} value={eng}>{eng}</option>
-                ))}
-                <option value="">Другой...</option>
-              </select>
-            ) : (
-              <input type="text" value={form.engine} onChange={(e) => update("engine", e.target.value)} className="input-field text-sm" placeholder="2.0L Turbo 249 л.с." />
-            )}
-            {engineOptions.length > 0 && form.engine === "" && (
-              <input type="text" onChange={(e) => update("engine", e.target.value)} className="input-field text-sm mt-2" placeholder="Введите свой вариант..." />
-            )}
-          </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Цвет</label>
+                  <input type="text" value={form.color} onChange={(e) => update("color", e.target.value)} className="input-field text-sm" placeholder="Серый металлик" />
+                </div>
+                <div>
+                  <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Госномер</label>
+                  <input type="text" value={form.licensePlate} onChange={(e) => update("licensePlate", e.target.value.toUpperCase())} className="input-field text-sm" placeholder="А777БВ 77" />
+                </div>
+              </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">КПП</label>
-              <select value={form.transmission} onChange={(e) => update("transmission", e.target.value)} className="input-field text-sm">
-                {transmissionOptions.map((t) => (
-                  <option key={t}>{t}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Топливо</label>
-              <select value={form.fuelType} onChange={(e) => update("fuelType", e.target.value)} className="input-field text-sm">
-                {fuelOptions.map((f) => (
-                  <option key={f}>{f}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+              {/* Engine — smart select or free input */}
+              <div>
+                <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Двигатель</label>
+                {engineOptions.length > 0 ? (
+                  <select value={form.engine} onChange={(e) => update("engine", e.target.value)} className="input-field text-sm">
+                    {engineOptions.map((eng) => (
+                      <option key={eng} value={eng}>{eng}</option>
+                    ))}
+                    <option value="">Другой...</option>
+                  </select>
+                ) : (
+                  <input type="text" value={form.engine} onChange={(e) => update("engine", e.target.value)} className="input-field text-sm" placeholder="2.0L Turbo 249 л.с." />
+                )}
+                {engineOptions.length > 0 && form.engine === "" && (
+                  <input type="text" onChange={(e) => update("engine", e.target.value)} className="input-field text-sm mt-2" placeholder="Введите свой вариант..." />
+                )}
+              </div>
 
-          <button type="submit" disabled={loading} className="btn-primary w-full justify-center text-sm !py-3 disabled:opacity-50 disabled:cursor-not-allowed">
-            {loading ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Добавляем...
-              </span>
-            ) : (
-              <span className="flex items-center gap-2">
-                <Plus className="w-4 h-4" />
-                Добавить автомобиль
-              </span>
-            )}
-          </button>
-        </form>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">КПП</label>
+                  <select value={form.transmission} onChange={(e) => update("transmission", e.target.value)} className="input-field text-sm">
+                    {transmissionOptions.map((t) => (
+                      <option key={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Топливо</label>
+                  <select value={form.fuelType} onChange={(e) => update("fuelType", e.target.value)} className="input-field text-sm">
+                    {fuelOptions.map((f) => (
+                      <option key={f}>{f}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <button type="submit" disabled={loading} className="btn-primary w-full justify-center text-sm !py-3 disabled:opacity-50 disabled:cursor-not-allowed">
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Добавляем...
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <Plus className="w-4 h-4" />
+                    Добавить автомобиль
+                  </span>
+                )}
+              </button>
+            </form>
+          </>
+        )}
       </div>
     </div>
   );

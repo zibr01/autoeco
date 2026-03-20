@@ -56,9 +56,39 @@ export async function GET() {
     prisma.review.count({ where: { serviceCenterId: sc.id } }),
   ]);
 
+  // Weekly trend (last 4 weeks)
+  const weeklyTrend = [];
+  for (let i = 3; i >= 0; i--) {
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() - (i + 1) * 7);
+    const weekEnd = new Date(now);
+    weekEnd.setDate(now.getDate() - i * 7);
+    const count = await prisma.booking.count({
+      where: { serviceCenterId: sc.id, createdAt: { gte: weekStart, lt: weekEnd } },
+    });
+    weeklyTrend.push({
+      week: `${weekStart.getDate()}.${weekStart.getMonth() + 1}`,
+      count,
+    });
+  }
+
+  // Favorites count
+  const favoritesCount = await prisma.favorite.count({
+    where: { serviceCenterId: sc.id },
+  });
+
+  // Active promo codes
+  const activePromos = await prisma.promoCode.count({
+    where: { serviceCenterId: sc.id, active: true },
+  });
+
   const growthPercent = lastMonthBookings > 0
     ? Math.round(((monthBookings - lastMonthBookings) / lastMonthBookings) * 100)
     : monthBookings > 0 ? 100 : 0;
+
+  const conversionRate = totalBookings > 0
+    ? Math.round((completedBookings / totalBookings) * 100)
+    : 0;
 
   return NextResponse.json({
     serviceCenter: {
@@ -79,7 +109,11 @@ export async function GET() {
       completedBookings,
       totalReviews,
       rating: sc.rating,
+      conversionRate,
+      favoritesCount,
+      activePromos,
     },
+    weeklyTrend,
     recentBookings,
     recentReviews: reviews,
   });

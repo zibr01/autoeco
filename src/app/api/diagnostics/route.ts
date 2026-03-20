@@ -1,7 +1,136 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth-helpers";
+import { prisma } from "@/lib/prisma";
+import Anthropic from "@anthropic-ai/sdk";
 
-interface Symptom {
+const anthropic = new Anthropic();
+
+const SYSTEM_PROMPT = `Ты — AI-диагност автомобилей в приложении AutoEco. Твоя задача — помочь автовладельцу определить возможные причины неисправности по описанию симптомов.
+
+Правила поведения:
+1. Отвечай ТОЛЬКО на русском языке
+2. Будь дружелюбным, профессиональным и понятным для обычного автовладельца
+3. Избегай слишком технического жаргона — объясняй простыми словами
+4. Всегда задавай 2-3 уточняющих вопроса перед постановкой диагноза
+5. После получения ответов на вопросы — дай развёрнутый диагноз
+
+Формат диагноза (когда достаточно информации):
+Ответь строго в JSON формате:
+{
+  "type": "diagnosis",
+  "reply": "текст диагноза в markdown",
+  "urgency": "high" | "medium" | "low",
+  "category": "название категории"
+}
+
+Текст диагноза должен содержать:
+- **Диагноз: [Категория]** — заголовок
+- Список возможных причин с вероятностями в процентах (от наиболее вероятной к наименее)
+- **Срочность:** — уровень срочности с пояснением
+- **Рекомендация:** — конкретный совет что делать
+
+Формат уточняющего вопроса:
+{
+  "type": "question",
+  "reply": "текст вопроса"
+}
+
+Категории неисправностей: Тормозная система, Система смазки двигателя, Система запуска, Ходовая часть / Колёса, Подвеска, Система охлаждения, Электрооборудование, Трансмиссия, Топливная система, Рулевое управление, Выхлопная система, Кузов и салон.
+
+Уровни срочности:
+- high: угроза безопасности, возможно дальнейшее повреждение (тормоза, перегрев, рулевое, критические утечки)
+- medium: нужен ремонт в ближайшие дни/неделю (стуки, вибрации, повышенный расход)
+- low: плановое обслуживание (незначительные звуки, косметические дефекты)
+
+ВАЖНО:
+- Не ставь диагноз после первого сообщения — сначала задай уточняющие вопросы
+- Если описание слишком общее, попроси уточнить
+- Всегда предупреждай, что AI-диагностика носит рекомендательный характер
+- Если симптомы указывают на опасную ситуацию (тормоза, перегрев), сразу предупреди об этом`;
+
+export async function POST(req: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
+  }
+
+  const { message, history, carId } = await req.json();
+
+  if (!message) {
+    return NextResponse.json({ error: "Сообщение обязательно" }, { status: 400 });
+  }
+
+  // Get car info for context
+  let carContext = "";
+  if (carId) {
+    const car = await prisma.car.findUnique({
+      where: { id: carId },
+      select: { make: true, model: true, year: true, mileage: true, engine: true, transmission: true, fuelType: true },
+    });
+    if (car) {
+      carContext = `\n\nАвтомобиль клиента: ${car.make} ${car.model} ${car.year}, пробег ${car.mileage.toLocaleString()} км, двигатель ${car.engine}, КПП ${car.transmission}, топливо ${car.fuelType}.`;
+    }
+  }
+
+  // Build conversation messages for Claude
+  const claudeMessages: { role: "user" | "assistant"; content: string }[] = [];
+
+  // Add conversation history
+  if (history && Array.isArray(history)) {
+    for (const msg of history) {
+      if (msg.role === "user") {
+        claudeMessages.push({ role: "user", content: msg.text });
+      } else if (msg.role === "ai") {
+        claudeMessages.push({ role: "assistant", content: msg.text });
+      }
+    }
+  }
+
+  // Add current message
+  claudeMessages.push({ role: "user", content: message });
+
+  try {
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1024,
+      system: SYSTEM_PROMPT + carContext,
+      messages: claudeMessages,
+    });
+
+    const rawText = response.content[0].type === "text" ? response.content[0].text : "";
+
+    // Try to parse JSON response
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        return NextResponse.json({
+          reply: parsed.reply || rawText,
+          type: parsed.type || "question",
+          urgency: parsed.urgency,
+          category: parsed.category,
+        });
+      } catch {
+        // JSON parse failed, treat as plain text question
+      }
+    }
+
+    // Fallback: return as question
+    return NextResponse.json({
+      reply: rawText,
+      type: "question",
+    });
+  } catch (error) {
+    console.error("Claude API error:", error);
+
+    // Fallback to keyword-based diagnostics if API fails
+    return fallbackDiagnostics(message, history);
+  }
+}
+
+// ─── Fallback keyword-based system ───────────────────
+
+interface SymptomDef {
   keywords: string[];
   questions: string[];
   causes: { text: string; probability: number }[];
@@ -10,206 +139,83 @@ interface Symptom {
   category: string;
 }
 
-const symptoms: Symptom[] = [
-  // === ТОРМОЗНАЯ СИСТЕМА ===
+const symptoms: SymptomDef[] = [
   {
     keywords: ["стук", "скрип", "скрежет", "пищит", "тормоз"],
     category: "Тормозная система",
-    questions: [
-      "Стук/скрип при торможении или постоянно во время движения?",
-      "Звук слышен спереди или сзади?",
-      "Когда последний раз меняли тормозные колодки?",
-    ],
+    questions: ["Стук/скрип при торможении или постоянно?", "Звук спереди или сзади?", "Когда меняли колодки?"],
     causes: [
-      { text: "Износ тормозных колодок — индикатор износа касается диска", probability: 55 },
-      { text: "Износ или деформация тормозного диска", probability: 20 },
-      { text: "Попадание грязи/камня между колодкой и диском", probability: 12 },
-      { text: "Люфт суппорта или направляющих", probability: 8 },
-      { text: "Коррозия диска после стоянки (обычно проходит сама)", probability: 5 },
+      { text: "Износ тормозных колодок", probability: 55 },
+      { text: "Деформация тормозного диска", probability: 20 },
+      { text: "Попадание грязи между колодкой и диском", probability: 12 },
+      { text: "Люфт суппорта", probability: 8 },
+      { text: "Коррозия диска после стоянки", probability: 5 },
     ],
     urgency: "high",
-    recommendation: "Тормоза — критическая система безопасности. Рекомендуем проверку в ближайшие 1-2 дня. Не откладывайте визит в сервис.",
+    recommendation: "Тормоза — критическая система. Рекомендуем проверку в ближайшие 1-2 дня.",
   },
-  // === ДВИГАТЕЛЬ — МАСЛО ===
   {
-    keywords: ["масло", "запах гар", "дым из-под капота", "горит масло", "течь масла"],
+    keywords: ["масло", "запах гар", "дым из-под капота", "течь масла"],
     category: "Система смазки двигателя",
-    questions: [
-      "Как давно заметили запах или следы масла?",
-      "Есть ли масляные пятна под машиной после стоянки?",
-      "Когда последний раз проверяли/меняли масло?",
-    ],
+    questions: ["Как давно заметили?", "Есть масляные пятна под машиной?", "Когда меняли масло?"],
     causes: [
       { text: "Течь через прокладку клапанной крышки", probability: 35 },
-      { text: "Масло попадает на горячий выпускной коллектор", probability: 25 },
-      { text: "Изношены маслосъёмные колпачки — повышенный расход масла", probability: 20 },
-      { text: "Износ сальников коленчатого/распределительного вала", probability: 12 },
-      { text: "Перелив масла при последней замене", probability: 8 },
+      { text: "Масло на горячем коллекторе", probability: 25 },
+      { text: "Износ маслосъёмных колпачков", probability: 20 },
+      { text: "Износ сальников", probability: 12 },
+      { text: "Перелив масла", probability: 8 },
     ],
     urgency: "medium",
-    recommendation: "Проверьте уровень масла щупом. Если ниже минимума — долейте. Запишитесь на диагностику в течение недели.",
+    recommendation: "Проверьте уровень масла. Если ниже минимума — долейте. Запишитесь на диагностику.",
   },
-  // === ЗАПУСК ДВИГАТЕЛЯ ===
   {
-    keywords: ["не завод", "завест", "стартер", "не крутит", "не схватывает", "плохо заводится"],
+    keywords: ["не завод", "завест", "стартер", "не крутит", "не схватывает"],
     category: "Система запуска",
-    questions: [
-      "Стартер крутит, но двигатель не схватывает? Или стартер вообще не крутит?",
-      "Когда последний раз меняли аккумулятор?",
-      "Проблема возникает на холодную, горячую или всегда?",
-    ],
+    questions: ["Стартер крутит?", "Когда меняли аккумулятор?", "На холодную или горячую?"],
     causes: [
-      { text: "Разряжен или изношен аккумулятор", probability: 40 },
-      { text: "Неисправность стартера или его реле", probability: 18 },
-      { text: "Проблемы с топливной системой (насос, фильтр, форсунки)", probability: 17 },
-      { text: "Неисправность датчика коленвала или системы зажигания", probability: 15 },
-      { text: "Окислены клеммы аккумулятора — плохой контакт", probability: 10 },
+      { text: "Разряжен аккумулятор", probability: 40 },
+      { text: "Неисправность стартера", probability: 18 },
+      { text: "Проблемы с топливной системой", probability: 17 },
+      { text: "Неисправность датчика коленвала", probability: 15 },
+      { text: "Окислены клеммы", probability: 10 },
     ],
     urgency: "high",
-    recommendation: "Попробуйте прикурить от другого авто. Если помогло — замените аккумулятор. Если нет — вызовите эвакуатор или мастера с выездом.",
+    recommendation: "Попробуйте прикурить. Если помогло — замените аккумулятор.",
   },
-  // === ВИБРАЦИЯ ===
   {
-    keywords: ["вибрац", "трясёт", "трясет", "дрожит", "бьёт руль", "бьет руль"],
+    keywords: ["вибрац", "трясёт", "трясет", "бьёт руль", "бьет руль"],
     category: "Ходовая часть / Колёса",
-    questions: [
-      "На какой скорости ощущается вибрация? На любой или только на определённой?",
-      "Вибрация при разгоне, торможении или постоянно?",
-      "Когда последний раз делали балансировку колёс?",
-    ],
+    questions: ["На какой скорости?", "При разгоне или торможении?", "Когда делали балансировку?"],
     causes: [
       { text: "Нарушена балансировка колёс", probability: 35 },
-      { text: "Деформация колёсного диска (удар о яму)", probability: 22 },
+      { text: "Деформация диска", probability: 22 },
       { text: "Износ ступичного подшипника", probability: 18 },
       { text: "Неравномерный износ шин", probability: 15 },
-      { text: "Износ ШРУСа (при вибрации в поворотах)", probability: 10 },
+      { text: "Износ ШРУСа", probability: 10 },
     ],
     urgency: "medium",
-    recommendation: "Начните с балансировки и осмотра колёс. При сильной вибрации на скорости — лучше не затягивать, запишитесь в ближайшие дни.",
+    recommendation: "Начните с балансировки и осмотра колёс.",
   },
-  // === ПОДВЕСКА ===
   {
-    keywords: ["стук в подвеске", "гремит", "стучит на кочках", "подвеска", "амортизатор", "стойк"],
-    category: "Подвеска",
-    questions: [
-      "Стук слышен при проезде неровностей или на ровной дороге тоже?",
-      "Звук глухой или звонкий/металлический?",
-      "Машину тянет в сторону при движении?",
-    ],
-    causes: [
-      { text: "Износ стоек/втулок стабилизатора поперечной устойчивости", probability: 30 },
-      { text: "Износ шаровых опор", probability: 22 },
-      { text: "Просевшие или изношенные амортизаторы", probability: 20 },
-      { text: "Износ сайлентблоков рычагов", probability: 18 },
-      { text: "Ослабленный крепёж элементов подвески", probability: 10 },
-    ],
-    urgency: "medium",
-    recommendation: "Запишитесь на диагностику ходовой в течение недели. Изношенная подвеска влияет на управляемость и безопасность.",
-  },
-  // === ПЕРЕГРЕВ ===
-  {
-    keywords: ["перегрев", "кипит", "температур", "антифриз", "охлаждающ", "радиатор", "закипел"],
+    keywords: ["перегрев", "кипит", "температур", "антифриз", "радиатор", "закипел"],
     category: "Система охлаждения",
-    questions: [
-      "Стрелка температуры уходит в красную зону или мигает индикатор?",
-      "Есть ли следы подтекания антифриза (зелёная/розовая жидкость)?",
-      "Когда последний раз меняли антифриз и проверяли его уровень?",
-    ],
+    questions: ["Стрелка в красной зоне?", "Есть следы подтекания?", "Когда меняли антифриз?"],
     causes: [
-      { text: "Неисправность термостата — заклинил в закрытом положении", probability: 30 },
-      { text: "Утечка антифриза (патрубки, радиатор, помпа)", probability: 25 },
-      { text: "Неисправность вентилятора охлаждения", probability: 20 },
-      { text: "Забит радиатор (снаружи грязью или изнутри отложениями)", probability: 15 },
-      { text: "Неисправность помпы (водяного насоса)", probability: 10 },
+      { text: "Неисправность термостата", probability: 30 },
+      { text: "Утечка антифриза", probability: 25 },
+      { text: "Неисправность вентилятора", probability: 20 },
+      { text: "Забит радиатор", probability: 15 },
+      { text: "Неисправность помпы", probability: 10 },
     ],
     urgency: "high",
-    recommendation: "НЕМЕДЛЕННО заглушите двигатель и дайте остыть! Перегрев может привести к серьёзным повреждениям двигателя. Вызовите эвакуатор.",
-  },
-  // === ЭЛЕКТРИКА ===
-  {
-    keywords: ["лампочка", "индикатор", "check engine", "чек", "горит значок", "приборная панель", "электрик"],
-    category: "Электрооборудование",
-    questions: [
-      "Какой именно значок горит на приборной панели? Опишите его.",
-      "Значок горит постоянно или мигает?",
-      "Заметили ли изменения в поведении автомобиля?",
-    ],
-    causes: [
-      { text: "Ошибка датчика кислорода (лямбда-зонд)", probability: 25 },
-      { text: "Пропуски зажигания в одном из цилиндров", probability: 20 },
-      { text: "Проблема с каталитическим нейтрализатором", probability: 18 },
-      { text: "Негерметичность впускной системы (подсос воздуха)", probability: 15 },
-      { text: "Неисправность датчика массового расхода воздуха (ДМРВ)", probability: 12 },
-      { text: "Проблема с системой EVAP (улавливание паров топлива)", probability: 10 },
-    ],
-    urgency: "medium",
-    recommendation: "Рекомендуем провести компьютерную диагностику для считывания кодов ошибок. Запишитесь в автосервис в ближайшие дни.",
-  },
-  // === КПП / ТРАНСМИССИЯ ===
-  {
-    keywords: ["коробка", "передач", "кпп", "переключ", "автомат", "рывки при переключ", "не переключ"],
-    category: "Трансмиссия",
-    questions: [
-      "Рывки при переключении передач или затруднённое включение?",
-      "У вас механическая, автоматическая или роботизированная КПП?",
-      "Когда последний раз меняли масло в коробке?",
-    ],
-    causes: [
-      { text: "Загрязнение или низкий уровень масла в КПП", probability: 30 },
-      { text: "Износ фрикционов (для АКПП) или синхронизаторов (МКПП)", probability: 25 },
-      { text: "Неисправность мехатроника (для DSG/робот)", probability: 20 },
-      { text: "Проблемы с гидротрансформатором", probability: 15 },
-      { text: "Износ сцепления (для МКПП/робот)", probability: 10 },
-    ],
-    urgency: "medium",
-    recommendation: "Начните с проверки уровня и состояния масла КПП. Запишитесь на диагностику трансмиссии — работа с коробкой требует специалиста.",
-  },
-  // === РАСХОД ТОПЛИВА ===
-  {
-    keywords: ["расход", "жрёт бензин", "жрет бензин", "топливо", "много ест", "большой расход"],
-    category: "Топливная система",
-    questions: [
-      "Насколько вырос расход? С какого до какого литров на 100 км?",
-      "Замечали ли потерю мощности или нестабильные обороты?",
-      "Когда последний раз меняли воздушный и топливный фильтры?",
-    ],
-    causes: [
-      { text: "Засорены воздушный и/или топливный фильтры", probability: 25 },
-      { text: "Неисправность датчиков (лямбда, ДМРВ, температуры)", probability: 22 },
-      { text: "Износ свечей зажигания", probability: 18 },
-      { text: "Низкое давление в шинах", probability: 15 },
-      { text: "Загрязнённые форсунки — неоптимальное распыление топлива", probability: 12 },
-      { text: "Неисправность термостата (двигатель не прогревается)", probability: 8 },
-    ],
-    urgency: "low",
-    recommendation: "Начните с простого: проверьте давление в шинах, замените фильтры и свечи. Если не поможет — нужна компьютерная диагностика.",
-  },
-  // === РУЛЕВОЕ УПРАВЛЕНИЕ ===
-  {
-    keywords: ["руль", "тяжело крутить", "гудит при повороте", "люфт руля", "рулевая", "гур"],
-    category: "Рулевое управление",
-    questions: [
-      "Руль стал тяжелее, появился люфт или посторонние звуки?",
-      "Звук/проблема при повороте в одну сторону или в обе?",
-      "Есть ли подтекания под машиной (в области передних колёс)?",
-    ],
-    causes: [
-      { text: "Низкий уровень жидкости ГУР или её утечка", probability: 28 },
-      { text: "Износ насоса гидроусилителя", probability: 22 },
-      { text: "Износ рулевых наконечников или тяг", probability: 20 },
-      { text: "Неисправность рулевой рейки", probability: 18 },
-      { text: "Проблемы с электроусилителем (EPS) — ошибка датчика", probability: 12 },
-    ],
-    urgency: "high",
-    recommendation: "Рулевое управление критично для безопасности. Не откладывайте диагностику. Запишитесь в сервис в ближайшие дни.",
+    recommendation: "НЕМЕДЛЕННО заглушите двигатель! Перегрев может серьёзно повредить мотор.",
   },
 ];
 
-function findSymptom(text: string): Symptom | null {
+function findSymptom(text: string): SymptomDef | null {
   const lower = text.toLowerCase();
-  let best: Symptom | null = null;
+  let best: SymptomDef | null = null;
   let bestScore = 0;
-
   for (const s of symptoms) {
     let score = 0;
     for (const kw of s.keywords) {
@@ -220,30 +226,18 @@ function findSymptom(text: string): Symptom | null {
       best = s;
     }
   }
-
   return best;
 }
 
-export async function POST(req: NextRequest) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
-  }
+function fallbackDiagnostics(message: string, history: { role: string; text: string; type?: string }[] | undefined) {
+  const questionCount = (history || []).filter((m) => m.role === "ai" && m.type === "question").length;
+  const fullText = message + " " + (history || []).map((m) => m.text).join(" ");
+  const symptom = findSymptom(fullText);
 
-  const { message, history } = await req.json();
-
-  if (!message) {
-    return NextResponse.json({ error: "Сообщение обязательно" }, { status: 400 });
-  }
-
-  const questionCount = (history || []).filter((m: { role: string; type?: string }) => m.role === "ai" && m.type === "question").length;
-  const symptom = findSymptom(message + " " + (history || []).map((m: { text: string }) => m.text).join(" "));
-
-  // First message — identify symptom and ask first question
   if (questionCount === 0) {
     if (!symptom) {
       return NextResponse.json({
-        reply: `Понял, вы описываете: "${message}". Уточните, пожалуйста, подробнее — что именно происходит: посторонние звуки, вибрация, проблемы с запуском, индикаторы на панели, изменения в поведении автомобиля?`,
+        reply: `Понял, вы описываете: "${message}". Уточните подробнее — посторонние звуки, вибрация, проблемы с запуском, индикаторы на панели?`,
         type: "question",
       });
     }
@@ -253,36 +247,25 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Follow-up questions
   if (symptom && questionCount < symptom.questions.length) {
-    const nextQ = symptom.questions[questionCount];
-    return NextResponse.json({
-      reply: nextQ,
-      type: "question",
-    });
+    return NextResponse.json({ reply: symptom.questions[questionCount], type: "question" });
   }
 
-  // Final diagnosis
   if (symptom) {
     const diagLines = [
       `**Диагноз: ${symptom.category}**`,
       "",
       ...symptom.causes.map((c) => `- ${c.text} — **${c.probability}%**`),
       "",
-      `**Срочность:** ${symptom.urgency === "high" ? "Высокая — требуется срочно" : symptom.urgency === "medium" ? "Средняя — в течение недели" : "Низкая — при плановом ТО"}`,
+      `**Срочность:** ${symptom.urgency === "high" ? "Высокая" : symptom.urgency === "medium" ? "Средняя" : "Низкая"}`,
       "",
       `**Рекомендация:** ${symptom.recommendation}`,
     ];
-
-    return NextResponse.json({
-      reply: diagLines.join("\n"),
-      type: "diagnosis",
-      urgency: symptom.urgency,
-    });
+    return NextResponse.json({ reply: diagLines.join("\n"), type: "diagnosis", urgency: symptom.urgency });
   }
 
   return NextResponse.json({
-    reply: "К сожалению, по вашему описанию не удалось определить конкретную проблему. Попробуйте описать симптом подробнее: какой звук, когда появляется, при каких условиях.",
+    reply: "Не удалось определить проблему. Попробуйте описать симптом подробнее.",
     type: "question",
   });
 }

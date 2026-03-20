@@ -5,7 +5,13 @@ import { prisma } from "./prisma";
 export async function getCurrentUser() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) return null;
-  return session.user;
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true, name: true, email: true, role: true, subscription: true },
+  });
+
+  return user;
 }
 
 export async function getCurrentUserFull() {

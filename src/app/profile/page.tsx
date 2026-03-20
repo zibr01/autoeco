@@ -18,6 +18,10 @@ import {
   Star,
   X,
   Send,
+  Gift,
+  Copy,
+  Check,
+  Users,
 } from "lucide-react";
 
 type Tab = "profile" | "cars" | "bookings" | "settings";
@@ -29,7 +33,9 @@ interface Profile {
   phone: string | null;
   city: string | null;
   subscription: string;
-  _count: { cars: number; bookings: number; reviews: number };
+  referralCode: string | null;
+  ecoPointsBalance: number;
+  _count: { cars: number; bookings: number; reviews: number; referrals: number };
 }
 
 interface CarItem {
@@ -77,14 +83,14 @@ export default function ProfilePage() {
     }
     if (authStatus === "authenticated") {
       Promise.all([
-        fetch("/api/profile").then((r) => r.json()),
-        fetch("/api/cars").then((r) => r.json()),
-        fetch("/api/bookings").then((r) => r.json()),
+        fetch("/api/profile").then((r) => { if (!r.ok) throw new Error(); return r.json(); }),
+        fetch("/api/cars").then((r) => { if (!r.ok) throw new Error(); return r.json(); }),
+        fetch("/api/bookings").then((r) => { if (!r.ok) throw new Error(); return r.json(); }),
       ])
         .then(([profileData, carsData, bookingsData]) => {
           setProfile(profileData);
-          setCars(carsData);
-          setBookings(bookingsData);
+          setCars(Array.isArray(carsData) ? carsData : []);
+          setBookings(Array.isArray(bookingsData) ? bookingsData : []);
         })
         .catch(() => {})
         .finally(() => setLoading(false));
@@ -186,14 +192,20 @@ function ProfileTab({ profile, cars }: { profile: Profile | null; cars: CarItem[
   const handleSave = async () => {
     setSaving(true);
     try {
-      await fetch("/api/profile", {
+      const res = await fetch("/api/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, phone, city }),
       });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch {}
+      if (res.ok) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      } else {
+        alert("Ошибка при сохранении профиля");
+      }
+    } catch {
+      alert("Ошибка сети. Попробуйте позже.");
+    }
     setSaving(false);
   };
 
@@ -240,6 +252,9 @@ function ProfileTab({ profile, cars }: { profile: Profile | null; cars: CarItem[
         </div>
       </div>
 
+      {/* Invite Friends */}
+      <ReferralBlock referralCode={profile?.referralCode || null} referralsCount={profile?._count?.referrals || 0} ecoPoints={profile?.ecoPointsBalance || 0} />
+
       {/* Subscription */}
       <div className="card-surface border-brand/20">
         <div className="flex items-start justify-between flex-wrap gap-4">
@@ -261,6 +276,70 @@ function ProfileTab({ profile, cars }: { profile: Profile | null; cars: CarItem[
           </span>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ReferralBlock({ referralCode, referralsCount, ecoPoints }: { referralCode: string | null; referralsCount: number; ecoPoints: number }) {
+  const [copied, setCopied] = useState(false);
+
+  const inviteUrl = referralCode
+    ? `${typeof window !== "undefined" ? window.location.origin : ""}/invite/${referralCode}`
+    : "";
+
+  const handleCopy = () => {
+    if (!inviteUrl) return;
+    navigator.clipboard.writeText(inviteUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <div className="card-surface border-accent/20">
+      <div className="flex items-center gap-2 mb-3">
+        <Gift className="w-5 h-5 text-accent" />
+        <h3 className="font-semibold text-text">Пригласить друга</h3>
+      </div>
+      <p className="text-text-muted text-sm mb-4">
+        Отправьте ссылку другу — вы оба получите <strong className="text-accent">300 EcoPoints</strong>
+      </p>
+
+      {referralCode ? (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              readOnly
+              value={inviteUrl}
+              className="input-field text-sm flex-1 font-mono text-xs"
+            />
+            <button
+              onClick={handleCopy}
+              className={`p-2.5 rounded-xl transition-all ${
+                copied
+                  ? "bg-emerald-500/20 text-emerald-400"
+                  : "bg-brand/20 text-brand-light hover:bg-brand/30"
+              }`}
+            >
+              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+            </button>
+          </div>
+
+          <div className="flex items-center gap-4 text-sm">
+            <div className="flex items-center gap-1.5 text-text-muted">
+              <Users className="w-4 h-4" />
+              <span>Приглашено: <strong className="text-text">{referralsCount}</strong></span>
+            </div>
+            <div className="flex items-center gap-1.5 text-text-muted">
+              <Star className="w-4 h-4 text-accent" />
+              <span>Баллы: <strong className="text-accent">{ecoPoints}</strong></span>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="text-text-dim text-sm">Реферальный код генерируется...</div>
+      )}
     </div>
   );
 }

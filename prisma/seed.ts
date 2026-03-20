@@ -7,6 +7,7 @@ async function main() {
   console.log("🌱 Начинаем заполнение базы данных...");
 
   // Clean existing data
+  await prisma.notification.deleteMany();
   await prisma.booking.deleteMany();
   await prisma.partOffer.deleteMany();
   await prisma.part.deleteMany();
@@ -31,7 +32,7 @@ async function main() {
       email: "kirill@example.com",
       passwordHash,
       phone: "+7 (916) 123-45-67",
-      city: "Москва",
+      city: "Самара",
       subscription: "PREMIUM",
     },
   });
@@ -104,10 +105,10 @@ async function main() {
   await prisma.maintenanceRecord.createMany({
     data: [
       // BMW
-      { carId: bmw.id, date: new Date("2024-11-15"), mileage: 85000, type: "Плановое ТО", description: "Замена масла и фильтров, диагностика", cost: 12500, serviceName: "BMW Сервис Центр Москва" },
+      { carId: bmw.id, date: new Date("2024-11-15"), mileage: 85000, type: "Плановое ТО", description: "Замена масла и фильтров, диагностика", cost: 12500, serviceName: "BMW Сервис Центр Самара" },
       { carId: bmw.id, date: new Date("2024-08-20"), mileage: 80000, type: "Замена тормозных колодок", description: "Передние тормозные колодки Brembo", cost: 8900, serviceName: "АвтоТех на Варшавке" },
       { carId: bmw.id, date: new Date("2024-04-10"), mileage: 75000, type: "Замена шин", description: "Летняя резина Michelin Pilot Sport 4 — 4 шт.", cost: 62000, serviceName: "ШинМастер" },
-      { carId: bmw.id, date: new Date("2023-11-05"), mileage: 70000, type: "Плановое ТО", description: "Замена масла, воздушного фильтра, свечей", cost: 15800, serviceName: "BMW Сервис Центр Москва" },
+      { carId: bmw.id, date: new Date("2023-11-05"), mileage: 70000, type: "Плановое ТО", description: "Замена масла, воздушного фильтра, свечей", cost: 15800, serviceName: "BMW Сервис Центр Самара" },
       { carId: bmw.id, date: new Date("2023-06-18"), mileage: 65000, type: "Замена шин", description: "Зимняя резина Michelin X-Ice — 4 шт.", cost: 58000, serviceName: "ШинМастер" },
       { carId: bmw.id, date: new Date("2023-02-28"), mileage: 60000, type: "Замена тормозной жидкости", description: "Замена тормозной жидкости DOT 4", cost: 3200, serviceName: "АвтоТех на Варшавке" },
       // Toyota
@@ -148,12 +149,13 @@ async function main() {
   const sc1 = await prisma.serviceCenter.create({
     data: {
       name: "АвтоТех Премиум", type: "sto", typeName: "Автосервис", rating: 4.9, reviewCount: 312,
-      address: "ул. Варшавское шоссе, 168А", district: "Южный", city: "Москва",
-      phone: "+7 (495) 555-01-01", hours: "08:00 – 21:00",
+      address: "ул. Ново-Садовая, 168А", district: "Октябрьский", city: "Самара",
+      phone: "+7 (846) 555-01-01", hours: "08:00 – 21:00",
       image: "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?w=800&auto=format&fit=crop",
       tags: JSON.stringify(["BMW", "Mercedes", "Audi", "Официальная диагностика"]),
       description: "Профессиональный автосервис для европейских автомобилей. Работаем с 2015 года, более 5000 довольных клиентов.",
       priceFrom: 3500, verified: true, featured: true,
+      lat: 53.2122, lng: 50.1438,
       services: JSON.stringify(["Плановое ТО", "Диагностика", "Замена масла", "Тормозная система", "Ходовая часть", "Двигатель и КПП", "Электрика", "Климат"]),
       photos: JSON.stringify(["https://images.unsplash.com/photo-1507136566006-cfc505b114fc?w=400&auto=format&fit=crop", "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&auto=format&fit=crop", "https://images.unsplash.com/photo-1609840113956-500ff23aacf3?w=400&auto=format&fit=crop"]),
     },
@@ -162,12 +164,13 @@ async function main() {
   const sc2 = await prisma.serviceCenter.create({
     data: {
       name: "ШинМастер Pro", type: "tires", typeName: "Шиномонтаж", rating: 4.8, reviewCount: 789,
-      address: "Проспект Мира, 56", district: "Центральный", city: "Москва",
-      phone: "+7 (495) 555-02-02", hours: "07:00 – 22:00",
+      address: "Московское шоссе, 56", district: "Промышленный", city: "Самара",
+      phone: "+7 (846) 555-02-02", hours: "07:00 – 22:00",
       image: "https://images.unsplash.com/photo-1578843088009-9f1bd854e665?w=800&auto=format&fit=crop",
       tags: JSON.stringify(["Быстрая замена", "Балансировка", "Хранение шин"]),
       description: "Профессиональный шиномонтаж и балансировка. 8 подъёмников, очередь без ожидания.",
       priceFrom: 800, verified: true, featured: false,
+      lat: 53.1893, lng: 50.1123,
       services: JSON.stringify(["Шиномонтаж", "Балансировка", "Прокачка азотом", "Хранение шин", "Ремонт проколов"]),
       photos: JSON.stringify(["https://images.unsplash.com/photo-1573074617613-fc8ef27e6a63?w=400&auto=format&fit=crop"]),
     },
@@ -176,12 +179,13 @@ async function main() {
   const sc3 = await prisma.serviceCenter.create({
     data: {
       name: "AquaShine Детейлинг", type: "detailing", typeName: "Детейлинг и мойка", rating: 4.9, reviewCount: 256,
-      address: "ул. Тверская, 22", district: "Центральный", city: "Москва",
-      phone: "+7 (495) 555-03-03", hours: "09:00 – 21:00",
+      address: "ул. Куйбышева, 22", district: "Ленинский", city: "Самара",
+      phone: "+7 (846) 555-03-03", hours: "09:00 – 21:00",
       image: "https://images.unsplash.com/photo-1601362840469-51e4d8d58785?w=800&auto=format&fit=crop",
       tags: JSON.stringify(["Защитные покрытия", "Полировка", "Химчистка"]),
       description: "Профессиональный детейлинг-центр. Керамические покрытия, полировка кузова, химчистка салона.",
       priceFrom: 2000, verified: true, featured: false,
+      lat: 53.1950, lng: 50.0963,
       services: JSON.stringify(["Детейлинг-мойка", "Полировка кузова", "Керамическое покрытие", "Химчистка салона", "Защита кузова", "Экспресс-мойка"]),
       photos: JSON.stringify(["https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?w=400&auto=format&fit=crop"]),
     },
@@ -191,56 +195,61 @@ async function main() {
     data: [
       {
         name: "Мастер Владимир Колесников", type: "master", typeName: "Частный мастер", rating: 4.7, reviewCount: 143,
-        address: "Выезд по Москве и МО", district: "По всей Москве", city: "Москва",
-        phone: "+7 (916) 555-04-04", hours: "09:00 – 20:00",
+        address: "Выезд по Самаре", district: "По всей Самаре", city: "Самара",
+        phone: "+7 (846) 555-04-04", hours: "09:00 – 20:00",
         image: "https://images.unsplash.com/photo-1537637709474-46deaeade5fc?w=400&auto=format&fit=crop",
         tags: JSON.stringify(["Выезд на место", "Диагностика", "Лада / Kia / Hyundai"]),
         description: "Опытный автомеханик с 15-летним стажем.",
         priceFrom: 1000, verified: true, featured: false,
+        lat: 53.2001, lng: 50.1500,
         services: JSON.stringify(["Выездная диагностика", "Замена масла и фильтров", "Тормозная система", "Мелкий ремонт"]),
         photos: JSON.stringify([]),
       },
       {
         name: "AutoWash 24", type: "wash", typeName: "Автомойка", rating: 4.5, reviewCount: 1240,
-        address: "МКАД 47 км, внешняя сторона", district: "Южный", city: "Москва",
-        phone: "+7 (495) 555-05-05", hours: "00:00 – 24:00",
+        address: "Южное шоссе, 12", district: "Кировский", city: "Самара",
+        phone: "+7 (846) 555-05-05", hours: "00:00 – 24:00",
         image: "https://images.unsplash.com/photo-1594956849073-5b14a8191b01?w=800&auto=format&fit=crop",
         tags: JSON.stringify(["Круглосуточно", "Без очереди", "Самообслуживание"]),
         description: "Автоматическая и ручная мойка круглосуточно.",
         priceFrom: 500, verified: false, featured: false,
+        lat: 53.1750, lng: 50.1280,
         services: JSON.stringify(["Автоматическая мойка", "Ручная мойка", "Самообслуживание", "Пылесос", "Чернение резины"]),
         photos: JSON.stringify([]),
       },
       {
         name: "ЭлектроМоторс", type: "electric", typeName: "Автоэлектрик", rating: 4.8, reviewCount: 198,
-        address: "ул. Автозаводская, 23", district: "Южный", city: "Москва",
-        phone: "+7 (495) 555-06-06", hours: "09:00 – 20:00",
+        address: "ул. Авроры, 23", district: "Советский", city: "Самара",
+        phone: "+7 (846) 555-06-06", hours: "09:00 – 20:00",
         image: "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800&auto=format&fit=crop",
         tags: JSON.stringify(["Электроника", "Аккумуляторы", "Сигнализация", "Камеры"]),
         description: "Специализируемся на автоэлектрике и электронике.",
         priceFrom: 1500, verified: true, featured: false,
+        lat: 53.2155, lng: 50.1822,
         services: JSON.stringify(["Диагностика ошибок", "Замена аккумулятора", "Установка сигнализации", "Видеорегистратор", "Камеры"]),
         photos: JSON.stringify([]),
       },
       {
         name: "GarageOne Techcenter", type: "sto", typeName: "Автосервис", rating: 4.6, reviewCount: 421,
-        address: "Ленинградское шоссе, 112", district: "Северный", city: "Москва",
-        phone: "+7 (495) 555-07-07", hours: "08:00 – 22:00",
+        address: "ул. Стара-Загора, 112", district: "Советский", city: "Самара",
+        phone: "+7 (846) 555-07-07", hours: "08:00 – 22:00",
         image: "https://images.unsplash.com/photo-1625047509248-ec889cbff17f?w=800&auto=format&fit=crop",
         tags: JSON.stringify(["Японские авто", "Kia", "Hyundai", "Nissan"]),
         description: "Специализация на японских и корейских автомобилях.",
         priceFrom: 2500, verified: true, featured: false,
+        lat: 53.2280, lng: 50.1950,
         services: JSON.stringify(["Плановое ТО", "Ходовая", "Двигатель", "Кузов", "Шины", "Диагностика"]),
         photos: JSON.stringify([]),
       },
       {
         name: "LadaMaster", type: "sto", typeName: "Автосервис", rating: 4.4, reviewCount: 567,
-        address: "Рязанский проспект, 85", district: "Восточный", city: "Москва",
-        phone: "+7 (495) 555-08-08", hours: "08:00 – 21:00",
+        address: "ул. Гагарина, 85", district: "Железнодорожный", city: "Самара",
+        phone: "+7 (846) 555-08-08", hours: "08:00 – 21:00",
         image: "https://images.unsplash.com/photo-1562141947-96f4ea73d82c?w=800&auto=format&fit=crop",
         tags: JSON.stringify(["Lada", "ВАЗ", "Доступные цены", "Запчасти на месте"]),
         description: "Специализированный сервис для отечественных автомобилей Lada и ВАЗ.",
         priceFrom: 800, verified: false, featured: false,
+        lat: 53.1820, lng: 50.0960,
         services: JSON.stringify(["ТО Lada", "Ходовая", "Кузов", "Электрика", "Трансмиссия"]),
         photos: JSON.stringify([]),
       },
@@ -397,25 +406,25 @@ async function main() {
   const testPassword = await bcrypt.hash("test123", 12);
 
   const testUsers = [
-    { name: "Алексей Петров", email: "alex@autoeco.test", phone: "+7 (916) 001-00-01", city: "Москва", car: { make: "Hyundai", model: "Tucson 2.0", year: 2022, vin: "KMHJ3814MNU100001", mileage: 42000, color: "Белый", engine: "2.0L 150 л.с.", transmission: "Автомат 6-ст.", fuelType: "Бензин", health: 90, image: "https://images.unsplash.com/photo-1633695632009-26111c161b84?w=800&auto=format&fit=crop", licensePlate: "А001АА 77", nextService: "через 3 000 км" } },
-    { name: "Мария Иванова", email: "maria@autoeco.test", phone: "+7 (916) 002-00-02", city: "Москва", car: { make: "Kia", model: "Sportage 2.0", year: 2023, vin: "KNAPH81BDP5100002", mileage: 18500, color: "Серый", engine: "2.0L 150 л.с.", transmission: "Автомат 6-ст.", fuelType: "Бензин", health: 96, image: "https://images.unsplash.com/photo-1609521263047-f8f205293f24?w=800&auto=format&fit=crop", licensePlate: "В002ВВ 77", nextService: "через 11 500 км" } },
-    { name: "Дмитрий Сидоров", email: "dmitry@autoeco.test", phone: "+7 (916) 003-00-03", city: "Москва", car: { make: "Volkswagen", model: "Tiguan 2.0 TSI", year: 2020, vin: "WVGZZZ5NZLW100003", mileage: 78000, color: "Чёрный", engine: "2.0L TSI 180 л.с.", transmission: "Робот DSG 7-ст.", fuelType: "Бензин", health: 75, image: "https://images.unsplash.com/photo-1606016159991-dfe4f2746ad5?w=800&auto=format&fit=crop", licensePlate: "С003СС 97", nextService: "через 2 000 км" } },
-    { name: "Елена Козлова", email: "elena@autoeco.test", phone: "+7 (916) 004-00-04", city: "Москва", car: { make: "Toyota", model: "RAV4 2.5", year: 2021, vin: "JTMW1RFV5MD100004", mileage: 55000, color: "Синий", engine: "2.5L 199 л.с.", transmission: "Автомат 8-ст.", fuelType: "Бензин", health: 85, image: "https://images.unsplash.com/photo-1581540222194-0def2dda95b8?w=800&auto=format&fit=crop", licensePlate: "Е004ЕЕ 77", nextService: "через 5 000 км" } },
-    { name: "Андрей Морозов", email: "andrey@autoeco.test", phone: "+7 (916) 005-00-05", city: "Москва", car: { make: "Skoda", model: "Octavia 1.4 TSI", year: 2021, vin: "TMBJG9NE6M0100005", mileage: 62000, color: "Серебристый", engine: "1.4L TSI 150 л.с.", transmission: "Робот DSG 8-ст.", fuelType: "Бензин", health: 80, image: "https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?w=800&auto=format&fit=crop", licensePlate: "К005КК 77", nextService: "через 3 000 км" } },
-    { name: "Ольга Новикова", email: "olga@autoeco.test", phone: "+7 (916) 006-00-06", city: "Москва", car: { make: "Mazda", model: "CX-5 2.5", year: 2022, vin: "JM3KFBCM5N0100006", mileage: 35000, color: "Красный", engine: "2.5L 194 л.с.", transmission: "Автомат 6-ст.", fuelType: "Бензин", health: 92, image: "https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=800&auto=format&fit=crop", licensePlate: "М006МН 77", nextService: "через 5 000 км" } },
-    { name: "Сергей Волков", email: "sergey@autoeco.test", phone: "+7 (916) 007-00-07", city: "Москва", car: { make: "Nissan", model: "Qashqai 2.0", year: 2020, vin: "SJNFAAJ11U2100007", mileage: 89000, color: "Тёмно-серый", engine: "2.0L 144 л.с.", transmission: "Вариатор", fuelType: "Бензин", health: 70, image: "https://images.unsplash.com/photo-1609840112990-4a4b78e457b0?w=800&auto=format&fit=crop", licensePlate: "Н007НН 97", nextService: "просрочено" } },
-    { name: "Наталья Белова", email: "natasha@autoeco.test", phone: "+7 (916) 008-00-08", city: "Москва", car: { make: "Renault", model: "Duster 1.5 dCi", year: 2021, vin: "VF1HJDAH0G0100008", mileage: 47000, color: "Оливковый", engine: "1.5L dCi 109 л.с.", transmission: "Механика 6-ст.", fuelType: "Дизель", health: 87, image: "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&auto=format&fit=crop", licensePlate: "О008ОР 77", nextService: "через 3 000 км" } },
-    { name: "Игорь Лебедев", email: "igor@autoeco.test", phone: "+7 (916) 009-00-09", city: "Москва", car: { make: "Mercedes-Benz", model: "E 200", year: 2020, vin: "WDD2130421A100009", mileage: 68000, color: "Чёрный обсидиан", engine: "2.0L 197 л.с.", transmission: "Автомат 9G-TRONIC", fuelType: "Бензин", health: 78, image: "https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=800&auto=format&fit=crop", licensePlate: "Р009РС 77", nextService: "через 2 000 км" } },
-    { name: "Анна Кузнецова", email: "anna@autoeco.test", phone: "+7 (916) 010-00-10", city: "Москва", car: { make: "Audi", model: "Q3 35 TFSI", year: 2022, vin: "WAUZZZF38NA100010", mileage: 28000, color: "Белый", engine: "1.5L TFSI 150 л.с.", transmission: "Робот S tronic 7-ст.", fuelType: "Бензин", health: 95, image: "https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?w=800&auto=format&fit=crop", licensePlate: "Т010ТУ 77", nextService: "через 12 000 км" } },
-    { name: "Павел Соколов", email: "pavel@autoeco.test", phone: "+7 (916) 011-00-11", city: "Москва", car: { make: "Lada", model: "Granta 1.6", year: 2023, vin: "XTA219010P0100011", mileage: 15000, color: "Белый", engine: "1.6L 90 л.с.", transmission: "Автомат 4-ст.", fuelType: "Бензин", health: 97, image: "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&auto=format&fit=crop", licensePlate: "У011УФ 199", nextService: "через 15 000 км" } },
-    { name: "Виктория Попова", email: "vika@autoeco.test", phone: "+7 (916) 012-00-12", city: "Москва", car: { make: "Chery", model: "Tiggo 7 Pro", year: 2023, vin: "LVTDB21B9P0100012", mileage: 22000, color: "Синий", engine: "1.5L Turbo 147 л.с.", transmission: "Вариатор", fuelType: "Бензин", health: 93, image: "https://images.unsplash.com/photo-1583121274602-3e2820c69888?w=800&auto=format&fit=crop", licensePlate: "Х012ХЦ 77", nextService: "через 8 000 км" } },
-    { name: "Максим Орлов", email: "max@autoeco.test", phone: "+7 (916) 013-00-13", city: "Москва", car: { make: "Haval", model: "Jolion 1.5T", year: 2022, vin: "LGWFF4A5XNH100013", mileage: 38000, color: "Серый", engine: "1.5L Turbo 143 л.с.", transmission: "Робот 7-ст.", fuelType: "Бензин", health: 88, image: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&auto=format&fit=crop", licensePlate: "Ч013ЧШ 97", nextService: "через 2 000 км" } },
-    { name: "Татьяна Федорова", email: "tanya@autoeco.test", phone: "+7 (916) 014-00-14", city: "Москва", car: { make: "Honda", model: "CR-V 2.0", year: 2019, vin: "SHSRD6870KU100014", mileage: 95000, color: "Белый перламутр", engine: "2.0L i-VTEC 150 л.с.", transmission: "Вариатор", fuelType: "Бензин", health: 68, image: "https://images.unsplash.com/photo-1568844293986-8d0400f4745b?w=800&auto=format&fit=crop", licensePlate: "Э014ЭЮ 77", nextService: "просрочено" } },
-    { name: "Роман Егоров", email: "roman@autoeco.test", phone: "+7 (916) 015-00-15", city: "Москва", car: { make: "Geely", model: "Coolray 1.5T", year: 2023, vin: "LSJA24U35P0100015", mileage: 12000, color: "Оранжевый", engine: "1.5L Turbo 150 л.с.", transmission: "Робот 7-ст.", fuelType: "Бензин", health: 98, image: "https://images.unsplash.com/photo-1542362567-b07e54358753?w=800&auto=format&fit=crop", licensePlate: "А015АВ 199", nextService: "через 18 000 км" } },
-    { name: "Юлия Миллер", email: "julia@autoeco.test", phone: "+7 (916) 016-00-16", city: "Москва", car: { make: "Ford", model: "Kuga 2.5 Hybrid", year: 2021, vin: "WF0XXXGCDXMA00016", mileage: 51000, color: "Тёмно-синий", engine: "2.5L Hybrid 190 л.с.", transmission: "Вариатор", fuelType: "Гибрид", health: 84, image: "https://images.unsplash.com/photo-1551830820-330a71b99659?w=800&auto=format&fit=crop", licensePlate: "В016ВГ 77", nextService: "через 4 000 км" } },
-    { name: "Артём Зайцев", email: "artem@autoeco.test", phone: "+7 (916) 017-00-17", city: "Москва", car: { make: "Mitsubishi", model: "Outlander 2.4", year: 2020, vin: "JMBXTCW5WKZ100017", mileage: 73000, color: "Серебристый", engine: "2.4L 167 л.с.", transmission: "Вариатор", fuelType: "Бензин", health: 76, image: "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=800&auto=format&fit=crop", licensePlate: "Д017ДЕ 97", nextService: "через 2 000 км" } },
-    { name: "Екатерина Смирнова", email: "katya@autoeco.test", phone: "+7 (916) 018-00-18", city: "Москва", car: { make: "Subaru", model: "Forester 2.5", year: 2021, vin: "JF2SKARC5MH100018", mileage: 44000, color: "Зелёный", engine: "2.5L 185 л.с.", transmission: "Вариатор Lineartronic", fuelType: "Бензин", health: 89, image: "https://images.unsplash.com/photo-1619976215249-0a78de35ebde?w=800&auto=format&fit=crop", licensePlate: "Ж018ЖЗ 77", nextService: "через 6 000 км" } },
-    { name: "Владислав Чернов", email: "vlad@autoeco.test", phone: "+7 (916) 019-00-19", city: "Москва", car: { make: "Volvo", model: "XC60 T5", year: 2020, vin: "YV4102DL1L1100019", mileage: 82000, color: "Синий", engine: "2.0L T5 254 л.с.", transmission: "Автомат 8-ст.", fuelType: "Бензин", health: 77, image: "https://images.unsplash.com/photo-1612825173281-9a193378527e?w=800&auto=format&fit=crop", licensePlate: "И019ИК 77", nextService: "через 3 000 км" } },
+    { name: "Алексей Петров", email: "alex@autoeco.test", phone: "+7 (916) 001-00-01", city: "Самара", car: { make: "Hyundai", model: "Tucson 2.0", year: 2022, vin: "KMHJ3814MNU100001", mileage: 42000, color: "Белый", engine: "2.0L 150 л.с.", transmission: "Автомат 6-ст.", fuelType: "Бензин", health: 90, image: "https://images.unsplash.com/photo-1633695632009-26111c161b84?w=800&auto=format&fit=crop", licensePlate: "А001АА 77", nextService: "через 3 000 км" } },
+    { name: "Мария Иванова", email: "maria@autoeco.test", phone: "+7 (916) 002-00-02", city: "Самара", car: { make: "Kia", model: "Sportage 2.0", year: 2023, vin: "KNAPH81BDP5100002", mileage: 18500, color: "Серый", engine: "2.0L 150 л.с.", transmission: "Автомат 6-ст.", fuelType: "Бензин", health: 96, image: "https://images.unsplash.com/photo-1609521263047-f8f205293f24?w=800&auto=format&fit=crop", licensePlate: "В002ВВ 77", nextService: "через 11 500 км" } },
+    { name: "Дмитрий Сидоров", email: "dmitry@autoeco.test", phone: "+7 (916) 003-00-03", city: "Самара", car: { make: "Volkswagen", model: "Tiguan 2.0 TSI", year: 2020, vin: "WVGZZZ5NZLW100003", mileage: 78000, color: "Чёрный", engine: "2.0L TSI 180 л.с.", transmission: "Робот DSG 7-ст.", fuelType: "Бензин", health: 75, image: "https://images.unsplash.com/photo-1606016159991-dfe4f2746ad5?w=800&auto=format&fit=crop", licensePlate: "С003СС 97", nextService: "через 2 000 км" } },
+    { name: "Елена Козлова", email: "elena@autoeco.test", phone: "+7 (916) 004-00-04", city: "Самара", car: { make: "Toyota", model: "RAV4 2.5", year: 2021, vin: "JTMW1RFV5MD100004", mileage: 55000, color: "Синий", engine: "2.5L 199 л.с.", transmission: "Автомат 8-ст.", fuelType: "Бензин", health: 85, image: "https://images.unsplash.com/photo-1581540222194-0def2dda95b8?w=800&auto=format&fit=crop", licensePlate: "Е004ЕЕ 77", nextService: "через 5 000 км" } },
+    { name: "Андрей Морозов", email: "andrey@autoeco.test", phone: "+7 (916) 005-00-05", city: "Самара", car: { make: "Skoda", model: "Octavia 1.4 TSI", year: 2021, vin: "TMBJG9NE6M0100005", mileage: 62000, color: "Серебристый", engine: "1.4L TSI 150 л.с.", transmission: "Робот DSG 8-ст.", fuelType: "Бензин", health: 80, image: "https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?w=800&auto=format&fit=crop", licensePlate: "К005КК 77", nextService: "через 3 000 км" } },
+    { name: "Ольга Новикова", email: "olga@autoeco.test", phone: "+7 (916) 006-00-06", city: "Самара", car: { make: "Mazda", model: "CX-5 2.5", year: 2022, vin: "JM3KFBCM5N0100006", mileage: 35000, color: "Красный", engine: "2.5L 194 л.с.", transmission: "Автомат 6-ст.", fuelType: "Бензин", health: 92, image: "https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=800&auto=format&fit=crop", licensePlate: "М006МН 77", nextService: "через 5 000 км" } },
+    { name: "Сергей Волков", email: "sergey@autoeco.test", phone: "+7 (916) 007-00-07", city: "Самара", car: { make: "Nissan", model: "Qashqai 2.0", year: 2020, vin: "SJNFAAJ11U2100007", mileage: 89000, color: "Тёмно-серый", engine: "2.0L 144 л.с.", transmission: "Вариатор", fuelType: "Бензин", health: 70, image: "https://images.unsplash.com/photo-1609840112990-4a4b78e457b0?w=800&auto=format&fit=crop", licensePlate: "Н007НН 97", nextService: "просрочено" } },
+    { name: "Наталья Белова", email: "natasha@autoeco.test", phone: "+7 (916) 008-00-08", city: "Самара", car: { make: "Renault", model: "Duster 1.5 dCi", year: 2021, vin: "VF1HJDAH0G0100008", mileage: 47000, color: "Оливковый", engine: "1.5L dCi 109 л.с.", transmission: "Механика 6-ст.", fuelType: "Дизель", health: 87, image: "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&auto=format&fit=crop", licensePlate: "О008ОР 77", nextService: "через 3 000 км" } },
+    { name: "Игорь Лебедев", email: "igor@autoeco.test", phone: "+7 (916) 009-00-09", city: "Самара", car: { make: "Mercedes-Benz", model: "E 200", year: 2020, vin: "WDD2130421A100009", mileage: 68000, color: "Чёрный обсидиан", engine: "2.0L 197 л.с.", transmission: "Автомат 9G-TRONIC", fuelType: "Бензин", health: 78, image: "https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?w=800&auto=format&fit=crop", licensePlate: "Р009РС 77", nextService: "через 2 000 км" } },
+    { name: "Анна Кузнецова", email: "anna@autoeco.test", phone: "+7 (916) 010-00-10", city: "Самара", car: { make: "Audi", model: "Q3 35 TFSI", year: 2022, vin: "WAUZZZF38NA100010", mileage: 28000, color: "Белый", engine: "1.5L TFSI 150 л.с.", transmission: "Робот S tronic 7-ст.", fuelType: "Бензин", health: 95, image: "https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?w=800&auto=format&fit=crop", licensePlate: "Т010ТУ 77", nextService: "через 12 000 км" } },
+    { name: "Павел Соколов", email: "pavel@autoeco.test", phone: "+7 (916) 011-00-11", city: "Самара", car: { make: "Lada", model: "Granta 1.6", year: 2023, vin: "XTA219010P0100011", mileage: 15000, color: "Белый", engine: "1.6L 90 л.с.", transmission: "Автомат 4-ст.", fuelType: "Бензин", health: 97, image: "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&auto=format&fit=crop", licensePlate: "У011УФ 199", nextService: "через 15 000 км" } },
+    { name: "Виктория Попова", email: "vika@autoeco.test", phone: "+7 (916) 012-00-12", city: "Самара", car: { make: "Chery", model: "Tiggo 7 Pro", year: 2023, vin: "LVTDB21B9P0100012", mileage: 22000, color: "Синий", engine: "1.5L Turbo 147 л.с.", transmission: "Вариатор", fuelType: "Бензин", health: 93, image: "https://images.unsplash.com/photo-1583121274602-3e2820c69888?w=800&auto=format&fit=crop", licensePlate: "Х012ХЦ 77", nextService: "через 8 000 км" } },
+    { name: "Максим Орлов", email: "max@autoeco.test", phone: "+7 (916) 013-00-13", city: "Самара", car: { make: "Haval", model: "Jolion 1.5T", year: 2022, vin: "LGWFF4A5XNH100013", mileage: 38000, color: "Серый", engine: "1.5L Turbo 143 л.с.", transmission: "Робот 7-ст.", fuelType: "Бензин", health: 88, image: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&auto=format&fit=crop", licensePlate: "Ч013ЧШ 97", nextService: "через 2 000 км" } },
+    { name: "Татьяна Федорова", email: "tanya@autoeco.test", phone: "+7 (916) 014-00-14", city: "Самара", car: { make: "Honda", model: "CR-V 2.0", year: 2019, vin: "SHSRD6870KU100014", mileage: 95000, color: "Белый перламутр", engine: "2.0L i-VTEC 150 л.с.", transmission: "Вариатор", fuelType: "Бензин", health: 68, image: "https://images.unsplash.com/photo-1568844293986-8d0400f4745b?w=800&auto=format&fit=crop", licensePlate: "Э014ЭЮ 77", nextService: "просрочено" } },
+    { name: "Роман Егоров", email: "roman@autoeco.test", phone: "+7 (916) 015-00-15", city: "Самара", car: { make: "Geely", model: "Coolray 1.5T", year: 2023, vin: "LSJA24U35P0100015", mileage: 12000, color: "Оранжевый", engine: "1.5L Turbo 150 л.с.", transmission: "Робот 7-ст.", fuelType: "Бензин", health: 98, image: "https://images.unsplash.com/photo-1542362567-b07e54358753?w=800&auto=format&fit=crop", licensePlate: "А015АВ 199", nextService: "через 18 000 км" } },
+    { name: "Юлия Миллер", email: "julia@autoeco.test", phone: "+7 (916) 016-00-16", city: "Самара", car: { make: "Ford", model: "Kuga 2.5 Hybrid", year: 2021, vin: "WF0XXXGCDXMA00016", mileage: 51000, color: "Тёмно-синий", engine: "2.5L Hybrid 190 л.с.", transmission: "Вариатор", fuelType: "Гибрид", health: 84, image: "https://images.unsplash.com/photo-1551830820-330a71b99659?w=800&auto=format&fit=crop", licensePlate: "В016ВГ 77", nextService: "через 4 000 км" } },
+    { name: "Артём Зайцев", email: "artem@autoeco.test", phone: "+7 (916) 017-00-17", city: "Самара", car: { make: "Mitsubishi", model: "Outlander 2.4", year: 2020, vin: "JMBXTCW5WKZ100017", mileage: 73000, color: "Серебристый", engine: "2.4L 167 л.с.", transmission: "Вариатор", fuelType: "Бензин", health: 76, image: "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=800&auto=format&fit=crop", licensePlate: "Д017ДЕ 97", nextService: "через 2 000 км" } },
+    { name: "Екатерина Смирнова", email: "katya@autoeco.test", phone: "+7 (916) 018-00-18", city: "Самара", car: { make: "Subaru", model: "Forester 2.5", year: 2021, vin: "JF2SKARC5MH100018", mileage: 44000, color: "Зелёный", engine: "2.5L 185 л.с.", transmission: "Вариатор Lineartronic", fuelType: "Бензин", health: 89, image: "https://images.unsplash.com/photo-1619976215249-0a78de35ebde?w=800&auto=format&fit=crop", licensePlate: "Ж018ЖЗ 77", nextService: "через 6 000 км" } },
+    { name: "Владислав Чернов", email: "vlad@autoeco.test", phone: "+7 (916) 019-00-19", city: "Самара", car: { make: "Volvo", model: "XC60 T5", year: 2020, vin: "YV4102DL1L1100019", mileage: 82000, color: "Синий", engine: "2.0L T5 254 л.с.", transmission: "Автомат 8-ст.", fuelType: "Бензин", health: 77, image: "https://images.unsplash.com/photo-1612825173281-9a193378527e?w=800&auto=format&fit=crop", licensePlate: "И019ИК 77", nextService: "через 3 000 км" } },
   ];
 
   for (const tu of testUsers) {
@@ -452,7 +461,7 @@ async function main() {
       email: "admin@autotech.ru",
       passwordHash: businessPassword,
       phone: "+7 (495) 555-01-01",
-      city: "Москва",
+      city: "Самара",
       role: "BUSINESS",
     },
   });
@@ -468,7 +477,7 @@ async function main() {
       email: "admin@shinmaster.ru",
       passwordHash: businessPassword,
       phone: "+7 (495) 555-02-02",
-      city: "Москва",
+      city: "Самара",
       role: "BUSINESS",
     },
   });
@@ -484,7 +493,7 @@ async function main() {
       email: "admin@aquashine.ru",
       passwordHash: businessPassword,
       phone: "+7 (495) 555-03-03",
-      city: "Москва",
+      city: "Самара",
       role: "BUSINESS",
     },
   });

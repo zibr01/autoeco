@@ -46,6 +46,22 @@ export async function POST(
 
   const data = await req.json();
 
+  // Support batch creation: accept an array of records
+  if (Array.isArray(data)) {
+    const records = await prisma.maintenanceRecord.createMany({
+      data: data.map((item: { date: string; mileage: number; type: string; description: string; cost: number; serviceName: string }) => ({
+        carId: params.id,
+        date: new Date(item.date),
+        mileage: item.mileage,
+        type: item.type,
+        description: item.description,
+        cost: item.cost,
+        serviceName: item.serviceName,
+      })),
+    });
+    return NextResponse.json({ count: records.count }, { status: 201 });
+  }
+
   const record = await prisma.maintenanceRecord.create({
     data: {
       carId: params.id,

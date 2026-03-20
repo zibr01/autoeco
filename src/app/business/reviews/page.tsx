@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Star, MessageSquare } from "lucide-react";
+import { Star, MessageSquare, Reply, Send, X, Pencil, Trash2 } from "lucide-react";
+
+interface ReviewReply {
+  id: string;
+  text: string;
+  createdAt: string;
+}
 
 interface Review {
   id: string;
@@ -11,6 +17,7 @@ interface Review {
   text: string;
   date: string;
   carModel: string;
+  reply: ReviewReply | null;
 }
 
 interface ReviewsData {
@@ -23,13 +30,57 @@ interface ReviewsData {
 export default function BusinessReviewsPage() {
   const [data, setData] = useState<ReviewsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [editingReply, setEditingReply] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
 
-  useEffect(() => {
+  const fetchReviews = () => {
     fetch("/api/business/reviews")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed");
+        return r.json();
+      })
       .then(setData)
+      .catch(() => setData(null))
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { fetchReviews(); }, []);
+
+  const handleReply = async (reviewId: string) => {
+    if (!replyText.trim()) return;
+    setSending(true);
+    const method = editingReply ? "PUT" : "POST";
+    const res = await fetch("/api/business/reviews/reply", {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reviewId, text: replyText.trim() }),
+    });
+    if (res.ok) {
+      setReplyingTo(null);
+      setEditingReply(null);
+      setReplyText("");
+      fetchReviews();
+    }
+    setSending(false);
+  };
+
+  const handleDeleteReply = async (reviewId: string) => {
+    const res = await fetch("/api/business/reviews/reply", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reviewId }),
+    });
+    if (res.ok) fetchReviews();
+  };
+
+  const startEdit = (review: Review) => {
+    if (!review.reply) return;
+    setReplyingTo(review.id);
+    setEditingReply(review.id);
+    setReplyText(review.reply.text);
+  };
 
   if (loading) {
     return (
@@ -105,7 +156,7 @@ export default function BusinessReviewsPage() {
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full bg-brand/10 flex items-center justify-center">
-                    <span className="text-sm font-bold text-brand">{review.avatar}</span>
+                    <span className="text-sm font-bold text-brand">{review.avatar || review.author[0]}</span>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-text">{review.author}</p>
@@ -127,6 +178,63 @@ export default function BusinessReviewsPage() {
                 </div>
               </div>
               <p className="text-sm text-text-muted leading-relaxed">{review.text}</p>
+
+              {/* Reply section */}
+              {review.reply && replyingTo !== review.id && (
+                <div className="mt-3 ml-4 pl-4 border-l-2 border-brand/20">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-medium text-brand">Ваш ответ</span>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => startEdit(review)} className="p-1 rounded-lg hover:bg-prussian/[0.06] text-text-dim hover:text-text transition-colors">
+                        <Pencil className="w-3 h-3" />
+                      </button>
+                      <button onClick={() => handleDeleteReply(review.id)} className="p-1 rounded-lg hover:bg-red-500/10 text-text-dim hover:text-red-400 transition-colors">
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-sm text-text-muted">{review.reply.text}</p>
+                  <p className="text-[10px] text-text-dim mt-1">
+                    {new Date(review.reply.createdAt).toLocaleDateString("ru-RU")}
+                  </p>
+                </div>
+              )}
+
+              {/* Reply form */}
+              {replyingTo === review.id ? (
+                <div className="mt-3 flex gap-2">
+                  <textarea
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    placeholder="Напишите ответ клиенту..."
+                    className="input-field text-sm flex-1 min-h-[60px] resize-none"
+                    autoFocus
+                  />
+                  <div className="flex flex-col gap-1">
+                    <button
+                      onClick={() => handleReply(review.id)}
+                      disabled={sending || !replyText.trim()}
+                      className="p-2 rounded-xl bg-brand text-white hover:bg-brand-dark transition-colors disabled:opacity-40"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => { setReplyingTo(null); setEditingReply(null); setReplyText(""); }}
+                      className="p-2 rounded-xl hover:bg-prussian/[0.06] text-text-dim transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ) : !review.reply ? (
+                <button
+                  onClick={() => { setReplyingTo(review.id); setReplyText(""); }}
+                  className="mt-3 flex items-center gap-1.5 text-xs text-brand hover:text-brand-dark transition-colors"
+                >
+                  <Reply className="w-3.5 h-3.5" />
+                  Ответить
+                </button>
+              ) : null}
             </div>
           ))}
         </div>

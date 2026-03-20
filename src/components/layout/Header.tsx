@@ -2,31 +2,51 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { Bell, Car, ChevronDown, Menu, User, X, LogOut, Settings, LayoutDashboard, Sun, Moon, Building2, AlertTriangle, Clock, CalendarCheck, CheckCircle2 } from "lucide-react";
+import { Bell, Car, ChevronDown, Menu, User, X, LogOut, Settings, LayoutDashboard, Sun, Moon, Building2, AlertTriangle, Clock, CalendarCheck, Star, MessageSquare, Ticket, CheckCircle2, Award, Crown } from "lucide-react";
 import { useTheme } from "@/components/providers/ThemeProvider";
 
 interface Notification {
   id: string;
-  type: "reminder" | "booking" | "maintenance";
+  type: string;
   title: string;
-  description: string;
-  urgency: "low" | "medium" | "high";
-  date: string;
+  message: string;
+  link?: string | null;
   read: boolean;
+  createdAt: string;
+  urgency?: string | null;
 }
 
 const navItems = [
   { href: "/dashboard", label: "Дашборд" },
   { href: "/garage", label: "Гараж" },
   { href: "/services", label: "Сервисы" },
-  { href: "/diagnostics", label: "Диагностика" },
   { href: "/parts", label: "Запчасти" },
+  { href: "/diagnostics", label: "Диагностика" },
+  { href: "/orders", label: "Заказы" },
+  { href: "/messages", label: "Сообщения" },
 ];
+
+function getNotifIcon(type: string, urgency?: string | null) {
+  switch (type) {
+    case "booking_confirmed": return { Icon: CalendarCheck, color: "text-emerald-400" };
+    case "booking_cancelled": return { Icon: X, color: "text-red-400" };
+    case "booking_created": return { Icon: CalendarCheck, color: "text-brand" };
+    case "review_reply": return { Icon: MessageSquare, color: "text-brand-light" };
+    case "reminder_due":
+      if (urgency === "high") return { Icon: AlertTriangle, color: "text-red-400" };
+      if (urgency === "medium") return { Icon: Clock, color: "text-accent" };
+      return { Icon: Clock, color: "text-[var(--text-muted)]" };
+    case "promo_new": return { Icon: Ticket, color: "text-accent" };
+    case "review_received": return { Icon: Star, color: "text-accent" };
+    default: return { Icon: Bell, color: "text-[var(--text-muted)]" };
+  }
+}
 
 export default function Header() {
   const pathname = usePathname();
+  const router = useRouter();
   const { data: session, status } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -63,6 +83,22 @@ export default function Header() {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
+
+  const handleMarkAllRead = async () => {
+    await fetch("/api/notifications/read-all", { method: "POST" });
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    setUnreadCount(0);
+  };
+
+  const handleNotifClick = async (n: Notification) => {
+    if (!n.read && !n.id.startsWith("reminder-")) {
+      await fetch(`/api/notifications/${n.id}`, { method: "PATCH" });
+      setNotifications((prev) => prev.map((x) => x.id === n.id ? { ...x, read: true } : x));
+      setUnreadCount((c) => Math.max(0, c - 1));
+    }
+    setNotifOpen(false);
+    if (n.link) router.push(n.link);
+  };
 
   const isAuth = status === "authenticated";
 
@@ -140,11 +176,21 @@ export default function Header() {
                     <div className="absolute right-0 mt-2 w-80 bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] shadow-lg z-50 overflow-hidden">
                       <div className="px-4 py-3 border-b border-[var(--divider)] flex items-center justify-between">
                         <span className="text-sm font-semibold text-[var(--text)]">Уведомления</span>
-                        {unreadCount > 0 && (
-                          <span className="text-xs bg-accent/15 text-accent px-2 py-0.5 rounded-full font-medium">
-                            {unreadCount} новых
-                          </span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {unreadCount > 0 && (
+                            <button
+                              onClick={handleMarkAllRead}
+                              className="text-[10px] text-brand hover:text-brand-light transition-colors"
+                            >
+                              Прочитать все
+                            </button>
+                          )}
+                          {unreadCount > 0 && (
+                            <span className="text-xs bg-accent/15 text-accent px-2 py-0.5 rounded-full font-medium">
+                              {unreadCount}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="max-h-80 overflow-y-auto">
                         {notifications.length === 0 ? (
@@ -152,46 +198,43 @@ export default function Header() {
                             Нет уведомлений
                           </div>
                         ) : (
-                          notifications.map((n) => {
-                            const NotifIcon =
-                              n.type === "reminder"
-                                ? n.urgency === "high" ? AlertTriangle : Clock
-                                : n.type === "booking"
-                                ? CalendarCheck
-                                : CheckCircle2;
-                            const iconColor =
-                              n.urgency === "high"
-                                ? "text-red-400"
-                                : n.urgency === "medium"
-                                ? "text-accent"
-                                : "text-[var(--text-muted)]";
+                          notifications.slice(0, 8).map((n) => {
+                            const { Icon, color } = getNotifIcon(n.type, n.urgency);
                             return (
-                              <div
+                              <button
                                 key={n.id}
-                                className={`px-4 py-3 border-b border-[var(--divider)] last:border-b-0 hover:bg-[var(--hover-bg)] transition-colors ${
+                                onClick={() => handleNotifClick(n)}
+                                className={`w-full text-left px-4 py-3 border-b border-[var(--divider)] last:border-b-0 hover:bg-[var(--hover-bg)] transition-colors ${
                                   !n.read ? "bg-brand/[0.03]" : ""
                                 }`}
                               >
                                 <div className="flex gap-3">
-                                  <div className={`mt-0.5 flex-shrink-0 ${iconColor}`}>
-                                    <NotifIcon className="w-4 h-4" />
+                                  <div className={`mt-0.5 flex-shrink-0 ${color}`}>
+                                    <Icon className="w-4 h-4" />
                                   </div>
                                   <div className="min-w-0 flex-1">
                                     <p className="text-sm font-medium text-[var(--text)] truncate">{n.title}</p>
-                                    <p className="text-xs text-[var(--text-muted)] mt-0.5 line-clamp-2">{n.description}</p>
+                                    <p className="text-xs text-[var(--text-muted)] mt-0.5 line-clamp-2">{n.message}</p>
                                     <p className="text-[10px] text-[var(--text-dim)] mt-1">
-                                      {new Date(n.date).toLocaleDateString("ru", { day: "numeric", month: "short" })}
+                                      {new Date(n.createdAt).toLocaleDateString("ru", { day: "numeric", month: "short" })}
                                     </p>
                                   </div>
                                   {!n.read && (
                                     <div className="w-2 h-2 bg-brand rounded-full flex-shrink-0 mt-1.5" />
                                   )}
                                 </div>
-                              </div>
+                              </button>
                             );
                           })
                         )}
                       </div>
+                      <Link
+                        href="/notifications"
+                        onClick={() => setNotifOpen(false)}
+                        className="block px-4 py-2.5 text-center text-xs font-medium text-brand hover:bg-brand/[0.04] border-t border-[var(--divider)] transition-colors"
+                      >
+                        Все уведомления
+                      </Link>
                     </div>
                   )}
                 </div>
@@ -236,6 +279,32 @@ export default function Header() {
                           B2B Кабинет
                         </Link>
                       )}
+                      {(session?.user?.role === "MODERATOR" || session?.user?.role === "ADMIN") && (
+                        <Link
+                          href="/moderator"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/[0.04] transition-all"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                          Модерация
+                        </Link>
+                      )}
+                      <Link
+                        href="/loyalty"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-accent hover:text-accent-dark hover:bg-accent/[0.04] transition-all"
+                      >
+                        <Award className="w-4 h-4" />
+                        EcoPoints
+                      </Link>
+                      <Link
+                        href="/subscription"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover-bg)] transition-all"
+                      >
+                        <Crown className="w-4 h-4" />
+                        Подписка
+                      </Link>
                       <Link
                         href="/profile"
                         onClick={() => setUserMenuOpen(false)}

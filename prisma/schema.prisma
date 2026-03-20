@@ -17,17 +17,29 @@ model User {
   phone         String?
   city          String?
   image         String?
-  role          String    @default("USER") // USER | BUSINESS
+  role          String    @default("USER") // USER | BUSINESS | MODERATOR | ADMIN
   subscription  String    @default("FREE") // FREE | PREMIUM
+  referralCode  String?   @unique // уникальный код приглашения
+  referredById  String?   // кто пригласил
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  cars           Car[]
-  bookings       Booking[]
-  reviews        Review[]
-  accounts       Account[]
-  sessions       Session[]
-  serviceCenters ServiceCenter[] @relation("ServiceCenterOwner")
+  referredBy       User?    @relation("Referrals", fields: [referredById], references: [id])
+  referrals        User[]   @relation("Referrals")
+  cars             Car[]
+  bookings         Booking[]
+  reviews          Review[]
+  favorites        Favorite[]
+  accounts         Account[]
+  sessions         Session[]
+  serviceCenters   ServiceCenter[] @relation("ServiceCenterOwner")
+  orders           Order[]
+  sentMessages     Message[] @relation("MessageSender")
+  receivedMessages Message[] @relation("MessageReceiver")
+  notifications    Notification[]
+  ecoPoints        EcoPointsTransaction[]
+  ecoPointsBalance Int        @default(0)
+  ecoLevel         String     @default("bronze") // bronze, silver, gold, platinum
 }
 
 model Account {
@@ -89,6 +101,25 @@ model Car {
   maintenanceRecords MaintenanceRecord[]
   reminders          Reminder[]
   bookings           Booking[]
+  documents          CarDocument[]
+  expenses           Expense[]
+  installedParts     InstalledPart[]
+}
+
+model CarDocument {
+  id          String    @id @default(cuid())
+  carId       String
+  type        String    // osago, kasko, sts, pts, inspection, license, other
+  title       String
+  number      String?
+  issueDate   DateTime?
+  expiryDate  DateTime?
+  insurer     String?   // страховая компания
+  cost        Float?
+  notes       String?
+  createdAt   DateTime  @default(now())
+
+  car Car @relation(fields: [carId], references: [id], onDelete: Cascade)
 }
 
 model MaintenanceRecord {
@@ -117,6 +148,40 @@ model Reminder {
   car Car @relation(fields: [carId], references: [id], onDelete: Cascade)
 }
 
+// ─── Expenses (расходы на авто) ──────────────────
+
+model Expense {
+  id          String   @id @default(cuid())
+  carId       String
+  category    String   // fuel, maintenance, wash, fines, parking, insurance, parts, other
+  amount      Float
+  date        DateTime
+  description String?
+  mileage     Int?
+  createdAt   DateTime @default(now())
+
+  car Car @relation(fields: [carId], references: [id], onDelete: Cascade)
+}
+
+// ─── Installed Parts (установленные запчасти) ────
+
+model InstalledPart {
+  id              String    @id @default(cuid())
+  carId           String
+  name            String
+  partNumber      String?   // артикул
+  brand           String?
+  price           Float?
+  installDate     DateTime
+  installMileage  Int?
+  purchasePlace   String?   // где купил
+  warrantyMonths  Int?      // гарантия в месяцах
+  notes           String?
+  createdAt       DateTime  @default(now())
+
+  car Car @relation(fields: [carId], references: [id], onDelete: Cascade)
+}
+
 // ─── Services ─────────────────────────────────────
 
 model ServiceCenter {
@@ -140,12 +205,17 @@ model ServiceCenter {
   featured    Boolean @default(false)
   services    String  // JSON array stored as string
   photos      String  // JSON array stored as string
+  lat         Float?
+  lng         Float?
+  clubDiscount Int       @default(20)
 
-  owner     User?       @relation("ServiceCenterOwner", fields: [ownerId], references: [id])
-  priceList PriceItem[]
-  reviews   Review[]
-  timeSlots TimeSlot[]
-  bookings  Booking[]
+  owner      User?       @relation("ServiceCenterOwner", fields: [ownerId], references: [id])
+  priceList  PriceItem[]
+  reviews    Review[]
+  timeSlots  TimeSlot[]
+  bookings   Booking[]
+  favorites  Favorite[]
+  promoCodes PromoCode[]
 }
 
 model PriceItem {
@@ -170,6 +240,16 @@ model Review {
 
   serviceCenter ServiceCenter @relation(fields: [serviceCenterId], references: [id], onDelete: Cascade)
   user          User?         @relation(fields: [userId], references: [id])
+  reply         ReviewReply?
+}
+
+model ReviewReply {
+  id        String   @id @default(cuid())
+  reviewId  String   @unique
+  text      String
+  createdAt DateTime @default(now())
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
 }
 
 model TimeSlot {
@@ -209,7 +289,41 @@ model PartOffer {
   partNumber   String
   rating       Float?
 
-  part Part @relation(fields: [partId], references: [id], onDelete: Cascade)
+  part       Part        @relation(fields: [partId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+}
+
+// ─── Favorites ───────────────────────────────────
+
+model Favorite {
+  id              String   @id @default(cuid())
+  userId          String
+  serviceCenterId String
+  createdAt       DateTime @default(now())
+
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serviceCenter ServiceCenter @relation(fields: [serviceCenterId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, serviceCenterId])
+}
+
+// ─── Promo Codes ─────────────────────────────────
+
+model PromoCode {
+  id              String    @id @default(cuid())
+  serviceCenterId String
+  code            String
+  description     String
+  discountPercent Int
+  maxUses         Int       @default(100)
+  usedCount       Int       @default(0)
+  active          Boolean   @default(true)
+  expiresAt       DateTime?
+  createdAt       DateTime  @default(now())
+
+  serviceCenter ServiceCenter @relation(fields: [serviceCenterId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceCenterId, code])
 }
 
 // ─── Bookings ─────────────────────────────────────
@@ -228,4 +342,82 @@ model Booking {
   user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   serviceCenter ServiceCenter @relation(fields: [serviceCenterId], references: [id], onDelete: Cascade)
   car           Car           @relation(fields: [carId], references: [id], onDelete: Cascade)
+}
+
+// ─── Orders (parts) ─────────────────────────────────
+
+model Order {
+  id          String   @id @default(cuid())
+  userId      String
+  status      String   @default("pending") // pending, confirmed, shipped, delivered, cancelled
+  totalPrice  Int
+  name        String
+  phone       String
+  email       String
+  address     String
+  comment     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items OrderItem[]
+}
+
+model OrderItem {
+  id          String @id @default(cuid())
+  orderId     String
+  partOfferId String
+  partName    String
+  seller      String
+  brand       String
+  partNumber  String
+  price       Int
+  quantity    Int
+
+  order     Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  partOffer PartOffer @relation(fields: [partOfferId], references: [id])
+}
+
+// ─── Messages (service chat) ─────────────────────────
+
+model Message {
+  id              String   @id @default(cuid())
+  senderId        String
+  receiverId      String
+  serviceCenterId String?
+  bookingId       String?
+  text            String
+  read            Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  sender   User @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("MessageReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+}
+
+// ─── Notifications ──────────────────────────────
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // booking_created, booking_confirmed, booking_cancelled, review_reply, reminder_due, system
+  title     String
+  message   String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── EcoPoints (Loyalty) ────────────────────────
+
+model EcoPointsTransaction {
+  id          String   @id @default(cuid())
+  userId      String
+  amount      Int      // positive = earned, negative = spent
+  type        String   // booking, review, referral, daily_login, car_added, maintenance, promo, spent
+  description String
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

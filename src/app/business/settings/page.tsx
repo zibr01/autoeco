@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Save, Building2, MapPin, Phone, Clock, FileText, Tag, Wrench, CheckCircle2 } from "lucide-react";
+import { Save, Building2, MapPin, Phone, Clock, FileText, Tag, Wrench, CheckCircle2, Image, Plus, X, Camera, Percent } from "lucide-react";
 
 interface ServiceSettings {
   name: string;
@@ -14,8 +14,10 @@ interface ServiceSettings {
   hours: string;
   description: string;
   priceFrom: number;
+  clubDiscount: number;
   tags: string[];
   services: string[];
+  photos: string[];
   verified: boolean;
 }
 
@@ -26,6 +28,7 @@ export default function BusinessSettingsPage() {
   const [saved, setSaved] = useState(false);
   const [tagInput, setTagInput] = useState("");
   const [serviceInput, setServiceInput] = useState("");
+  const [photoInput, setPhotoInput] = useState("");
 
   useEffect(() => {
     fetch("/api/business/settings")
@@ -64,17 +67,36 @@ export default function BusinessSettingsPage() {
     updateField("services", form.services.filter((_, i) => i !== idx));
   };
 
+  const addPhoto = () => {
+    if (!form || !photoInput.trim()) return;
+    updateField("photos", [...form.photos, photoInput.trim()]);
+    setPhotoInput("");
+  };
+
+  const removePhoto = (idx: number) => {
+    if (!form) return;
+    updateField("photos", form.photos.filter((_, i) => i !== idx));
+  };
+
   const handleSave = async () => {
     if (!form) return;
     setSaving(true);
-    await fetch("/api/business/settings", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
+    try {
+      const res = await fetch("/api/business/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      if (res.ok) {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 3000);
+      } else {
+        alert("Ошибка при сохранении настроек");
+      }
+    } catch {
+      alert("Ошибка сети. Попробуйте позже.");
+    }
     setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
   };
 
   if (loading || !form) {
@@ -197,6 +219,81 @@ export default function BusinessSettingsPage() {
           <div className="flex gap-2">
             <input type="text" value={serviceInput} onChange={(e) => setServiceInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addService())} className="input-field text-sm flex-1" placeholder="Добавить услугу..." />
             <button onClick={addService} className="btn-secondary text-sm">+</button>
+          </div>
+        </div>
+        {/* Photo Gallery */}
+        <div className="card-surface space-y-3">
+          <h2 className="text-sm font-semibold text-text flex items-center gap-2">
+            <Camera className="w-4 h-4 text-brand" /> Галерея работ
+          </h2>
+
+          {form.photos.length > 0 ? (
+            <div className="grid grid-cols-4 gap-3">
+              {form.photos.map((url, i) => (
+                <div key={i} className="relative group aspect-square rounded-lg overflow-hidden bg-surface-dim">
+                  <img
+                    src={url}
+                    alt={`Фото ${i + 1}`}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = "";
+                      (e.target as HTMLImageElement).classList.add("hidden");
+                      (e.target as HTMLImageElement).parentElement?.classList.add("flex", "items-center", "justify-center");
+                    }}
+                  />
+                  <button
+                    onClick={() => removePhoto(i)}
+                    className="absolute top-1.5 right-1.5 w-6 h-6 bg-black/60 hover:bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8 text-text-muted">
+              <Image className="w-8 h-8 mb-2 opacity-40" />
+              <p className="text-sm">Нет фотографий</p>
+              <p className="text-xs mt-0.5">Добавьте ссылки на фото ваших работ</p>
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={photoInput}
+              onChange={(e) => setPhotoInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addPhoto())}
+              className="input-field text-sm flex-1"
+              placeholder="Вставьте ссылку на фото..."
+            />
+            <button onClick={addPhoto} className="btn-secondary text-sm flex items-center gap-1.5">
+              <Plus className="w-4 h-4" /> Добавить
+            </button>
+          </div>
+        </div>
+        {/* Club Programme */}
+        <div className="card-surface space-y-4" style={{ borderColor: "rgba(89,50,230,0.15)", background: "linear-gradient(135deg, rgba(89,50,230,0.03), rgba(89,50,230,0.01))" }}>
+          <h2 className="text-sm font-semibold text-text flex items-center gap-2">
+            <Percent className="w-4 h-4 text-brand" /> Клубная программа AutoEco
+          </h2>
+          <p className="text-xs text-text-muted">
+            Установите скидку для владельцев клубной карты AutoEco. Клубники записываются чаще.
+          </p>
+          <div>
+            <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Скидка для клубников</label>
+            <div className="flex items-center gap-3 max-w-[200px]">
+              <input
+                type="number"
+                min={0}
+                max={50}
+                value={form.clubDiscount ?? 20}
+                onChange={(e) => updateField("clubDiscount", Math.min(50, Math.max(0, parseInt(e.target.value) || 0)))}
+                className="input-field text-sm flex-1"
+              />
+              <span className="text-sm font-semibold text-brand">%</span>
+            </div>
+            <p className="text-[11px] text-text-dim mt-1.5">От 0% до 50%. Рекомендуем 10–20%.</p>
           </div>
         </div>
       </div>

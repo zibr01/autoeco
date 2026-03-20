@@ -59,8 +59,9 @@ export default function DiagnosticsPage() {
       fetch("/api/cars")
         .then((res) => res.json())
         .then((data) => {
-          setCars(data);
-          if (data.length > 0) setSelectedCar(data[0]);
+          const list = Array.isArray(data) ? data : [];
+          setCars(list);
+          if (list.length > 0) setSelectedCar(list[0]);
         })
         .catch(() => {});
     }

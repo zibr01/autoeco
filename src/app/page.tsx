@@ -17,6 +17,10 @@ import {
   CheckCircle2,
   Bot,
   Sparkles,
+  Heart,
+  Scale,
+  Ticket,
+  MessageSquare,
 } from "lucide-react";
 
 /* ── Data ──────────────────────────────────────── */
@@ -426,7 +430,7 @@ export default function LandingPage() {
                       </li>
                     ))}
                   </ul>
-                  <Link href="/services" className="btn-primary">
+                  <Link href="/auth/register-business" className="btn-primary">
                     Подключить сервис <ArrowRight className="w-4 h-4" />
                   </Link>
                 </div>
@@ -446,6 +450,97 @@ export default function LandingPage() {
                   ))}
                 </div>
               </div>
+            </div>
+          </div>
+        </Reveal>
+      </section>
+
+      {/* ═══ New Features ═══ */}
+      <section className="py-28 max-w-7xl mx-auto px-5">
+        <Reveal>
+          <div className="text-center mb-16">
+            <div className="tag-brand mb-4 inline-flex">Новое</div>
+            <h2 className="section-title mb-4">Ещё больше возможностей</h2>
+            <p className="section-subtitle max-w-xl mx-auto">
+              Мы постоянно развиваем платформу. Вот что появилось недавно.
+            </p>
+          </div>
+        </Reveal>
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {[
+            { icon: Heart, title: "Избранное", desc: "Сохраняй любимые сервисы для быстрого доступа", color: "text-red-400", bg: "bg-red-500/10" },
+            { icon: Scale, title: "Сравнение", desc: "Сравнивай до 3 сервисов бок о бок по всем параметрам", color: "text-purple-400", bg: "bg-purple-500/10" },
+            { icon: Ticket, title: "Промокоды", desc: "Получай скидки от сервисов при записи через платформу", color: "text-sky-400", bg: "bg-sky-500/10" },
+            { icon: MessageSquare, title: "Ответы на отзывы", desc: "Сервисы отвечают на отзывы — живой диалог", color: "text-emerald-400", bg: "bg-emerald-500/10" },
+          ].map((f, i) => (
+            <Reveal key={f.title} delay={i * 80}>
+              <div className="card-surface text-center h-full">
+                <div className={`w-12 h-12 rounded-xl ${f.bg} flex items-center justify-center mx-auto mb-4`}>
+                  <f.icon className={`w-6 h-6 ${f.color}`} />
+                </div>
+                <h3 className="font-bold text-prussian mb-2">{f.title}</h3>
+                <p className="text-text-muted text-sm">{f.desc}</p>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      <div className="glow-line max-w-md mx-auto" />
+
+      {/* ═══ Testimonials ═══ */}
+      <section className="py-28">
+        <Reveal>
+          <div className="max-w-7xl mx-auto px-5">
+            <div className="text-center mb-16">
+              <h2 className="section-title mb-4">Что говорят пользователи</h2>
+              <p className="section-subtitle max-w-xl mx-auto">
+                Отзывы реальных автомобилистов и владельцев сервисов
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-5">
+              {[
+                {
+                  name: "Алексей К.",
+                  role: "BMW 5 Series",
+                  text: "Наконец-то всё в одном месте. Раньше я вёл заметки в телефоне и терял чеки. Теперь вся история привязана к машине, напоминания приходят сами.",
+                  rating: 5,
+                },
+                {
+                  name: "Марина Д.",
+                  role: "Владелица СТО «АвтоМастер»",
+                  text: "За первый месяц получили +30% новых клиентов. Онлайн-запись экономит 2 часа в день на телефонных звонках. Промокоды отлично работают.",
+                  rating: 5,
+                },
+                {
+                  name: "Дмитрий В.",
+                  role: "Toyota Camry",
+                  text: "AI-диагностика удивила. Описал стук при торможении — система точно определила износ колодок. Сразу записался в ближайший сервис.",
+                  rating: 5,
+                },
+              ].map((t, i) => (
+                <Reveal key={t.name} delay={i * 100}>
+                  <div className="card-surface h-full flex flex-col">
+                    <div className="flex items-center gap-0.5 mb-4">
+                      {Array.from({ length: t.rating }).map((_, j) => (
+                        <Star key={j} className="w-4 h-4 text-accent fill-accent" />
+                      ))}
+                    </div>
+                    <p className="text-text-muted text-sm leading-relaxed flex-1 mb-5">&ldquo;{t.text}&rdquo;</p>
+                    <div className="flex items-center gap-3 pt-4 border-t border-prussian/[0.06]">
+                      <div className="w-9 h-9 rounded-full bg-brand/10 flex items-center justify-center">
+                        <span className="text-sm font-bold text-brand">{t.name[0]}</span>
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-prussian">{t.name}</div>
+                        <div className="text-xs text-text-dim">{t.role}</div>
+                      </div>
+                    </div>
+                  </div>
+                </Reveal>
+              ))}
             </div>
           </div>
         </Reveal>
@@ -484,11 +579,14 @@ export default function LandingPage() {
             <span className="font-bold text-sm tracking-tight text-prussian">AutoEco</span>
             <span className="text-text-dim text-xs ml-1">— умная экосистема</span>
           </div>
-          <div className="flex items-center gap-6 text-xs text-text-dim">
+          <div className="flex items-center gap-4 sm:gap-6 text-xs text-text-dim flex-wrap justify-center">
             <Link href="/garage" className="hover:text-prussian transition-colors">Гараж</Link>
             <Link href="/services" className="hover:text-prussian transition-colors">Сервисы</Link>
+            <Link href="/compare" className="hover:text-prussian transition-colors">Сравнение</Link>
             <Link href="/diagnostics" className="hover:text-prussian transition-colors">Диагностика</Link>
             <Link href="/parts" className="hover:text-prussian transition-colors">Запчасти</Link>
+            <Link href="/partners" className="hover:text-prussian transition-colors font-medium text-brand">Партнёрам</Link>
+            <Link href="/auth/register-business" className="hover:text-prussian transition-colors">Для бизнеса</Link>
           </div>
           <div className="text-text-dim text-xs">© 2026 AutoEco</div>
         </div>

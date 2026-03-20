@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
       orderBy: { date: "desc" },
       skip: (page - 1) * limit,
       take: limit,
+      include: { reply: true },
     }),
     prisma.review.count({ where: { serviceCenterId: sc.id } }),
     prisma.review.aggregate({

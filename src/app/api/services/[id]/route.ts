@@ -9,7 +9,7 @@ export async function GET(
     where: { id: params.id },
     include: {
       priceList: true,
-      reviews: { orderBy: { date: "desc" } },
+      reviews: { orderBy: { date: "desc" }, include: { reply: true } },
       timeSlots: true,
     },
   });

@@ -1,13 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Car, Mail, Lock, User, Phone, MapPin, Eye, EyeOff, ArrowRight, AlertCircle, Check } from "lucide-react";
+import { Car, Mail, Lock, User, Phone, MapPin, Eye, EyeOff, ArrowRight, AlertCircle, Check, Gift } from "lucide-react";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const refCode = searchParams.get("ref");
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -16,7 +18,24 @@ export default function RegisterPage() {
     phone: "",
     city: "",
   });
+  const [referralCode, setReferralCode] = useState(refCode || "");
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    // Pick up referral code from localStorage (set by /invite/[code])
+    if (!referralCode) {
+      const stored = localStorage.getItem("referralCode");
+      if (stored) {
+        setReferralCode(stored);
+      }
+    }
+    // Clean up after use
+    return () => {
+      if (referralCode) {
+        localStorage.removeItem("referralCode");
+      }
+    };
+  }, []);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -50,6 +69,7 @@ export default function RegisterPage() {
           password: form.password,
           phone: form.phone || undefined,
           city: form.city || undefined,
+          referralCode: referralCode || undefined,
         }),
       });
 
@@ -110,6 +130,15 @@ export default function RegisterPage() {
               Присоединяйтесь к AutoEco
             </p>
           </div>
+
+          {referralCode && (
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-brand/5 border border-brand/15 mb-5">
+              <Gift className="w-4 h-4 text-brand-light flex-shrink-0" />
+              <span className="text-sm text-brand-light">
+                Вы получите <strong>300 EcoPoints</strong> за регистрацию по приглашению
+              </span>
+            </div>
+          )}
 
           {error && (
             <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/5 border border-red-500/15 mb-5">

@@ -29,7 +29,98 @@ import {
   Star,
   ArrowRight,
   Loader2,
+  Heart,
+  Scale,
+  X,
 } from "lucide-react";
+
+function WelcomeBanner({ carsCount, bookingsCount }: { carsCount: number; bookingsCount: number }) {
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setDismissed(localStorage.getItem("welcome_dismissed") === "true");
+    }
+  }, []);
+
+  const dismiss = () => {
+    localStorage.setItem("welcome_dismissed", "true");
+    setDismissed(true);
+  };
+
+  if (dismissed) return null;
+
+  if (carsCount === 0) {
+    return (
+      <div className="relative mb-6 rounded-2xl border border-brand/20 bg-gradient-to-br from-brand/[0.06] to-transparent p-5">
+        <button
+          onClick={dismiss}
+          className="absolute top-3 right-3 p-1.5 rounded-lg text-text-dim hover:text-text hover:bg-prussian/[0.05] transition-all"
+          aria-label="Закрыть"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
+        <h2 className="text-lg font-bold text-text mb-1">Добро пожаловать в AutoEco! 👋</h2>
+        <p className="text-text-muted text-sm mb-4">Начните с добавления вашего автомобиля</p>
+
+        <div className="flex flex-wrap items-center gap-2 mb-5">
+          {[
+            { label: "1. Добавьте авто" },
+            { label: "→" },
+            { label: "2. Найдите сервис" },
+            { label: "→" },
+            { label: "3. Запишитесь онлайн" },
+          ].map((step, i) =>
+            step.label === "→" ? (
+              <span key={i} className="text-text-dim text-sm">→</span>
+            ) : (
+              <span
+                key={i}
+                className="px-3 py-1.5 rounded-xl bg-brand/10 border border-brand/15 text-brand-light text-sm font-medium"
+              >
+                {step.label}
+              </span>
+            )
+          )}
+        </div>
+
+        <Link
+          href="/garage"
+          className="btn-primary inline-flex items-center gap-2 text-sm !py-2.5 !px-5"
+        >
+          <Car className="w-4 h-4" />
+          Добавить автомобиль
+        </Link>
+      </div>
+    );
+  }
+
+  if (bookingsCount === 0) {
+    return (
+      <div className="relative mb-6 rounded-2xl border border-prussian/[0.08] bg-white/50 px-4 py-3 flex items-center justify-between gap-4">
+        <button
+          onClick={dismiss}
+          className="absolute top-2.5 right-2.5 p-1 rounded-lg text-text-dim hover:text-text hover:bg-prussian/[0.05] transition-all"
+          aria-label="Закрыть"
+        >
+          <X className="w-3.5 h-3.5" />
+        </button>
+        <p className="text-sm text-text-muted pr-6">
+          Попробуйте записаться в сервис через AutoEco
+        </p>
+        <Link
+          href="/services"
+          className="text-sm font-semibold text-brand-light hover:underline whitespace-nowrap flex-shrink-0"
+        >
+          Найти сервис →
+        </Link>
+      </div>
+    );
+  }
+
+  return null;
+}
 
 interface ReminderData {
   id: string;
@@ -115,6 +206,12 @@ export default function DashboardPage() {
   const router = useRouter();
   const [carsData, setCarsData] = useState<CarData[]>([]);
   const [bookingsData, setBookingsData] = useState<BookingData[]>([]);
+  const [favorites, setFavorites] = useState<{ serviceCenter: { id: string; name: string; typeName: string; rating: number; image: string } }[]>([]);
+  const [spending, setSpending] = useState<{
+    monthly: { month: string; total: number }[];
+    byCategory: { type: string; total: number }[];
+    totalSpent: number;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -127,14 +224,20 @@ export default function DashboardPage() {
       Promise.all([
         fetch("/api/cars").then((r) => r.json()),
         fetch("/api/bookings").then((r) => r.json()),
+        fetch("/api/favorites").then((r) => r.json()).catch(() => []),
+        fetch("/api/analytics/spending").then((r) => r.json()).catch(() => null),
       ])
-        .then(([cars, bookings]) => {
+        .then(([cars, bookings, favs, spendingData]) => {
           setCarsData(Array.isArray(cars) ? cars : []);
           setBookingsData(
             Array.isArray(bookings)
-              ? bookings.filter((b: BookingData) => b.status !== "completed")
+              ? bookings
+                  .filter((b: BookingData) => b.status !== "completed")
+                  .sort((a: BookingData, b: BookingData) => new Date(a.date).getTime() - new Date(b.date).getTime())
               : []
           );
+          setFavorites(Array.isArray(favs) ? favs : []);
+          if (spendingData?.monthly) setSpending(spendingData);
         })
         .finally(() => setLoading(false));
     }
@@ -191,6 +294,9 @@ export default function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* Onboarding banner */}
+      <WelcomeBanner carsCount={carsData.length} bookingsCount={bookingsData.length} />
 
       {/* Quick Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
@@ -337,6 +443,129 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* Recent Activity */}
+          <div className="card-surface">
+            <h2 className="font-semibold text-text mb-4">Последняя активность</h2>
+            <div className="space-y-1">
+              {(() => {
+                const activities: { id: string; icon: React.ReactNode; text: string; detail: string; time: string; sortDate: number }[] = [];
+                bookingsData.forEach((b) => {
+                  activities.push({
+                    id: `b-${b.id}`,
+                    icon: <Calendar className="w-4 h-4 text-brand-light" />,
+                    text: `Запись: ${b.serviceType}`,
+                    detail: `${b.serviceCenter.name} — ${b.car.make} ${b.car.model}`,
+                    time: formatTimeAgo(b.date),
+                    sortDate: new Date(b.date).getTime(),
+                  });
+                });
+                carsData.forEach((car) => {
+                  car.maintenanceRecords.forEach((m) => {
+                    activities.push({
+                      id: `m-${m.id}`,
+                      icon: <Wrench className="w-4 h-4 text-emerald-500" />,
+                      text: m.type,
+                      detail: `${m.serviceName} — ${car.make} ${car.model} · ${m.cost.toLocaleString("ru")} ₽`,
+                      time: formatTimeAgo(m.date),
+                      sortDate: new Date(m.date).getTime(),
+                    });
+                  });
+                });
+                activities.sort((a, b) => b.sortDate - a.sortDate);
+                const items = activities.slice(0, 5);
+                if (items.length === 0) {
+                  return <p className="text-center py-6 text-text-muted text-sm">Пока нет активности</p>;
+                }
+                return items.map((item, i) => (
+                  <div key={item.id} className="flex items-start gap-3 py-3 relative">
+                    {i < items.length - 1 && <div className="absolute left-[11px] top-10 bottom-0 w-px bg-prussian/[0.06]" />}
+                    <div className="w-6 h-6 rounded-full bg-white border border-prussian/[0.08] flex items-center justify-center flex-shrink-0 z-10">{item.icon}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-text font-medium">{item.text}</div>
+                      <div className="text-xs text-text-muted truncate">{item.detail}</div>
+                      <div className="text-[10px] text-text-dim mt-0.5">{item.time}</div>
+                    </div>
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+
+          {/* Spending Analytics */}
+          {spending && spending.monthly.some((m) => m.total > 0) && (
+            <div className="card-surface">
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-2">
+                  <h2 className="font-semibold text-text">Расходы на обслуживание</h2>
+                  <span className="tag text-[10px] bg-sky-500/10 text-sky-400 border border-sky-500/20">за 6 мес.</span>
+                </div>
+                <span className="text-sm font-bold text-text">{spending.totalSpent.toLocaleString("ru")} ₽</span>
+              </div>
+              {/* Bar chart */}
+              <div className="flex items-end gap-2 h-32 mb-4">
+                {(() => {
+                  const maxVal = Math.max(...spending.monthly.map((m) => m.total), 1);
+                  return spending.monthly.map((m, i) => (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-1 group">
+                      <div className="relative w-full flex justify-center">
+                        <div className="absolute -top-6 hidden group-hover:block text-[10px] font-medium text-text bg-[var(--bg-elevated)] px-2 py-0.5 rounded-lg border border-[var(--border)] shadow-sm whitespace-nowrap z-10">
+                          {m.total.toLocaleString("ru")} ₽
+                        </div>
+                      </div>
+                      <div
+                        className="w-full max-w-[40px] rounded-t-lg bg-brand/20 relative overflow-hidden transition-all"
+                        style={{ height: `${Math.max((m.total / maxVal) * 100, 4)}%` }}
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-t from-brand to-brand-light opacity-70 rounded-t-lg" />
+                      </div>
+                      <span className="text-[10px] text-text-dim">{m.month}</span>
+                    </div>
+                  ));
+                })()}
+              </div>
+              {/* Category breakdown */}
+              {spending.byCategory.length > 0 && (
+                <div className="space-y-2 pt-3 border-t border-[var(--divider)]">
+                  <p className="text-xs text-text-dim font-medium uppercase tracking-wider">По категориям</p>
+                  {spending.byCategory.slice(0, 5).map((cat) => {
+                    const pct = Math.round((cat.total / spending.totalSpent) * 100);
+                    return (
+                      <div key={cat.type} className="flex items-center gap-3">
+                        <div className="w-4 h-4 flex items-center justify-center text-text-muted">
+                          {reminderIcons[cat.type] || <Wrench className="w-3.5 h-3.5" />}
+                        </div>
+                        <span className="text-xs text-text-muted flex-1 truncate capitalize">{cat.type}</span>
+                        <div className="w-20 h-1.5 rounded-full bg-[var(--hover-bg)] overflow-hidden">
+                          <div className="h-full rounded-full bg-brand/50" style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="text-xs font-medium text-text w-16 text-right">{cat.total.toLocaleString("ru")} ₽</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Right column */}
+        <div className="space-y-4 sm:space-y-6">
+          {/* Quick Actions */}
+          <div className="card-surface">
+            <h2 className="font-semibold text-text mb-4">Быстрые действия</h2>
+            <div className="grid grid-cols-2 gap-3">
+              {quickActions.map((action) => (
+                <Link key={action.href} href={action.href} className="flex flex-col items-center gap-2 p-4 rounded-xl border border-prussian/[0.06] hover:border-brand/20 hover:shadow-sm transition-all group">
+                  <div className={`w-10 h-10 rounded-xl ${action.bg} flex items-center justify-center ${action.color} group-hover:scale-110 transition-transform`}>{action.icon}</div>
+                  <div className="text-center">
+                    <div className="text-sm font-medium text-text">{action.label}</div>
+                    <div className="text-[10px] text-text-dim">{action.desc}</div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+
           {/* Bookings */}
           <div className="card-surface">
             <div className="flex items-center justify-between mb-5">
@@ -351,7 +580,6 @@ export default function DashboardPage() {
                   const st = statusLabel[b.status] || statusLabel.pending;
                   const d = new Date(b.date);
                   const daysUntil = Math.ceil((d.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-
                   return (
                     <div key={b.id} className="flex items-center gap-4 p-3 -mx-3 rounded-xl hover:bg-prussian/[0.02] transition-all">
                       <div className="w-12 h-12 rounded-xl bg-brand/5 border border-brand/10 flex flex-col items-center justify-center flex-shrink-0">
@@ -385,80 +613,53 @@ export default function DashboardPage() {
               Записаться на сервис
             </Link>
           </div>
-        </div>
 
-        {/* Right column */}
-        <div className="space-y-4 sm:space-y-6">
-          {/* Quick Actions */}
-          <div className="card-surface">
-            <h2 className="font-semibold text-text mb-4">Быстрые действия</h2>
-            <div className="grid grid-cols-2 gap-3">
-              {quickActions.map((action) => (
-                <Link key={action.href} href={action.href} className="flex flex-col items-center gap-2 p-4 rounded-xl border border-prussian/[0.06] hover:border-brand/20 hover:shadow-sm transition-all group">
-                  <div className={`w-10 h-10 rounded-xl ${action.bg} flex items-center justify-center ${action.color} group-hover:scale-110 transition-transform`}>{action.icon}</div>
-                  <div className="text-center">
-                    <div className="text-sm font-medium text-text">{action.label}</div>
-                    <div className="text-[10px] text-text-dim">{action.desc}</div>
-                  </div>
+          {/* Favorites */}
+          {favorites.length > 0 && (
+            <div className="card-surface">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Heart className="w-4 h-4 text-red-400" />
+                  <h2 className="font-semibold text-text">Избранное</h2>
+                </div>
+                <Link href="/favorites" className="text-xs text-brand-light hover:text-brand font-medium flex items-center gap-1">
+                  Все <ChevronRight className="w-3.5 h-3.5" />
                 </Link>
-              ))}
-            </div>
-          </div>
-
-          {/* Recent Activity */}
-          <div className="card-surface">
-            <h2 className="font-semibold text-text mb-4">Последняя активность</h2>
-            <div className="space-y-1">
-              {(() => {
-                const activities: { id: string; icon: React.ReactNode; text: string; detail: string; time: string; sortDate: number }[] = [];
-
-                // Bookings as activity
-                bookingsData.forEach((b) => {
-                  activities.push({
-                    id: `b-${b.id}`,
-                    icon: <Calendar className="w-4 h-4 text-brand-light" />,
-                    text: `Запись: ${b.serviceType}`,
-                    detail: `${b.serviceCenter.name} — ${b.car.make} ${b.car.model}`,
-                    time: formatTimeAgo(b.date),
-                    sortDate: new Date(b.date).getTime(),
-                  });
-                });
-
-                // Maintenance records as activity
-                carsData.forEach((car) => {
-                  car.maintenanceRecords.forEach((m) => {
-                    activities.push({
-                      id: `m-${m.id}`,
-                      icon: <Wrench className="w-4 h-4 text-emerald-500" />,
-                      text: m.type,
-                      detail: `${m.serviceName} — ${car.make} ${car.model} · ${m.cost.toLocaleString("ru")} ₽`,
-                      time: formatTimeAgo(m.date),
-                      sortDate: new Date(m.date).getTime(),
-                    });
-                  });
-                });
-
-                activities.sort((a, b) => b.sortDate - a.sortDate);
-                const items = activities.slice(0, 5);
-
-                if (items.length === 0) {
-                  return <p className="text-center py-6 text-text-muted text-sm">Пока нет активности</p>;
-                }
-
-                return items.map((item, i) => (
-                  <div key={item.id} className="flex items-start gap-3 py-3 relative">
-                    {i < items.length - 1 && <div className="absolute left-[11px] top-10 bottom-0 w-px bg-prussian/[0.06]" />}
-                    <div className="w-6 h-6 rounded-full bg-white border border-prussian/[0.08] flex items-center justify-center flex-shrink-0 z-10">{item.icon}</div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm text-text font-medium">{item.text}</div>
-                      <div className="text-xs text-text-muted truncate">{item.detail}</div>
-                      <div className="text-[10px] text-text-dim mt-0.5">{item.time}</div>
+              </div>
+              <div className="space-y-2">
+                {favorites.slice(0, 3).map((fav) => (
+                  <Link key={fav.serviceCenter.id} href={`/services/${fav.serviceCenter.id}`} className="flex items-center gap-3 p-2 -mx-2 rounded-xl hover:bg-prussian/[0.02] transition-all group">
+                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-bg-elevated flex-shrink-0">
+                      <img src={fav.serviceCenter.image} alt="" className="w-full h-full object-cover" />
                     </div>
-                  </div>
-                ));
-              })()}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-text truncate">{fav.serviceCenter.name}</div>
+                      <div className="flex items-center gap-2 text-xs text-text-muted">
+                        <span>{fav.serviceCenter.typeName}</span>
+                        <span className="flex items-center gap-0.5">
+                          <Star className="w-3 h-3 text-accent fill-accent" />
+                          {fav.serviceCenter.rating}
+                        </span>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-text-dim group-hover:text-brand-light transition-colors flex-shrink-0" />
+                  </Link>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Compare CTA */}
+          <Link href="/compare" className="card-surface flex items-center gap-3 hover:border-brand/30 transition-all group">
+            <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center flex-shrink-0">
+              <Scale className="w-5 h-5 text-purple-400" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-text text-sm">Сравнить сервисы</h3>
+              <p className="text-xs text-text-muted">Цены, рейтинг и услуги бок о бок</p>
+            </div>
+            <ArrowRight className="w-4 h-4 text-text-dim group-hover:text-brand-light transition-colors flex-shrink-0" />
+          </Link>
 
           {/* AI CTA */}
           <div className="card-surface border-brand/15 bg-gradient-to-br from-brand/[0.03] to-transparent">

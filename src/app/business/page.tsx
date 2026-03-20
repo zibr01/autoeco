@@ -1,16 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   CalendarCheck,
-  TrendingUp,
   Clock,
   Star,
   CheckCircle2,
-  AlertCircle,
   Users,
   ArrowUpRight,
   ArrowDownRight,
+  Heart,
+  Ticket,
+  TrendingUp,
+  BarChart3,
 } from "lucide-react";
 
 interface Stats {
@@ -22,6 +25,9 @@ interface Stats {
   completedBookings: number;
   totalReviews: number;
   rating: number;
+  conversionRate: number;
+  favoritesCount: number;
+  activePromos: number;
 }
 
 interface Booking {
@@ -43,6 +49,11 @@ interface Review {
   carModel: string;
 }
 
+interface WeeklyData {
+  week: string;
+  count: number;
+}
+
 interface DashboardData {
   serviceCenter: {
     name: string;
@@ -53,6 +64,7 @@ interface DashboardData {
   stats: Stats;
   recentBookings: Booking[];
   recentReviews: Review[];
+  weeklyTrend: WeeklyData[];
 }
 
 export default function BusinessDashboard() {
@@ -61,8 +73,12 @@ export default function BusinessDashboard() {
 
   useEffect(() => {
     fetch("/api/business/stats")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed");
+        return r.json();
+      })
       .then(setData)
+      .catch(() => setData(null))
       .finally(() => setLoading(false));
   }, []);
 
@@ -78,7 +94,7 @@ export default function BusinessDashboard() {
     return <div className="text-center text-text-muted py-20">Не удалось загрузить данные</div>;
   }
 
-  const { serviceCenter, stats, recentBookings, recentReviews } = data;
+  const { serviceCenter, stats, recentBookings, recentReviews, weeklyTrend } = data;
 
   const statusLabels: Record<string, { label: string; color: string }> = {
     pending: { label: "Ожидает", color: "text-amber-400 bg-amber-500/10" },
@@ -86,6 +102,8 @@ export default function BusinessDashboard() {
     completed: { label: "Выполнена", color: "text-emerald-400 bg-emerald-500/10" },
     cancelled: { label: "Отменена", color: "text-red-400 bg-red-500/10" },
   };
+
+  const maxWeekly = Math.max(...weeklyTrend.map((w) => w.count), 1);
 
   return (
     <div className="space-y-6">
@@ -108,43 +126,96 @@ export default function BusinessDashboard() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          icon={CalendarCheck}
-          label="Записей за месяц"
-          value={stats.monthBookings}
-          change={stats.growthPercent}
-          color="brand"
-        />
-        <StatCard
-          icon={Clock}
-          label="Ожидают подтверждения"
-          value={stats.pendingBookings}
-          color="amber"
-        />
-        <StatCard
-          icon={Users}
-          label="Всего записей"
-          value={stats.totalBookings}
-          color="blue"
-        />
-        <StatCard
-          icon={Star}
-          label="Отзывов"
-          value={stats.totalReviews}
-          subtitle={stats.rating > 0 ? `${stats.rating.toFixed(1)} средний рейтинг` : undefined}
-          color="emerald"
-        />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard icon={CalendarCheck} label="Записей за месяц" value={stats.monthBookings} change={stats.growthPercent} color="brand" />
+        <StatCard icon={Clock} label="Ожидают подтверждения" value={stats.pendingBookings} color="amber" />
+        <StatCard icon={Users} label="Всего записей" value={stats.totalBookings} color="blue" />
+        <StatCard icon={Star} label="Отзывов" value={stats.totalReviews} subtitle={stats.rating > 0 ? `${stats.rating.toFixed(1)} средний рейтинг` : undefined} color="emerald" />
+      </div>
+
+      {/* Secondary Stats */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="card-surface !p-4 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-purple-500/10 flex items-center justify-center">
+            <TrendingUp className="w-4.5 h-4.5 text-purple-400" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-text">{stats.conversionRate}%</p>
+            <p className="text-xs text-text-muted">Конверсия</p>
+          </div>
+        </div>
+        <div className="card-surface !p-4 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-red-500/10 flex items-center justify-center">
+            <Heart className="w-4.5 h-4.5 text-red-400" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-text">{stats.favoritesCount}</p>
+            <p className="text-xs text-text-muted">В избранном</p>
+          </div>
+        </div>
+        <div className="card-surface !p-4 flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-sky-500/10 flex items-center justify-center">
+            <Ticket className="w-4.5 h-4.5 text-sky-400" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-text">{stats.activePromos}</p>
+            <p className="text-xs text-text-muted">Активных промо</p>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Weekly Chart */}
+        <div className="card-surface">
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart3 className="w-4.5 h-4.5 text-brand" />
+            <h2 className="text-lg font-semibold text-text">Записи по неделям</h2>
+          </div>
+          <div className="flex items-end gap-3 h-32">
+            {weeklyTrend.map((w, i) => (
+              <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
+                <span className="text-xs font-medium text-text">{w.count}</span>
+                <div className="w-full rounded-t-lg bg-brand/20 relative overflow-hidden" style={{ height: `${Math.max((w.count / maxWeekly) * 100, 8)}%` }}>
+                  <div className="absolute inset-0 bg-brand/40 rounded-t-lg" />
+                </div>
+                <span className="text-[10px] text-text-dim">{w.week}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Booking Status Breakdown */}
+        <div className="card-surface">
+          <h2 className="text-lg font-semibold text-text mb-4">Статусы записей</h2>
+          <div className="space-y-3">
+            {[
+              { label: "Выполнено", count: stats.completedBookings, color: "bg-emerald-400", textColor: "text-emerald-400" },
+              { label: "Подтверждено", count: stats.confirmedBookings, color: "bg-blue-400", textColor: "text-blue-400" },
+              { label: "Ожидают", count: stats.pendingBookings, color: "bg-amber-400", textColor: "text-amber-400" },
+            ].map((item) => {
+              const percent = stats.totalBookings > 0 ? Math.round((item.count / stats.totalBookings) * 100) : 0;
+              return (
+                <div key={item.label}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm text-text-muted">{item.label}</span>
+                    <span className={`text-sm font-medium ${item.textColor}`}>{item.count} ({percent}%)</span>
+                  </div>
+                  <div className="h-2 rounded-full bg-prussian/[0.06] overflow-hidden">
+                    <div className={`h-full rounded-full ${item.color} transition-all`} style={{ width: `${percent}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Recent Bookings */}
         <div className="card-surface">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-text">Последние записи</h2>
-            <a href="/business/bookings" className="text-sm text-brand-light hover:text-brand transition-colors">
+            <Link href="/business/bookings" className="text-sm text-brand-light hover:text-brand transition-colors">
               Все записи
-            </a>
+            </Link>
           </div>
 
           {recentBookings.length === 0 ? (
@@ -173,9 +244,9 @@ export default function BusinessDashboard() {
         <div className="card-surface">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-text">Последние отзывы</h2>
-            <a href="/business/reviews" className="text-sm text-brand-light hover:text-brand transition-colors">
+            <Link href="/business/reviews" className="text-sm text-brand-light hover:text-brand transition-colors">
               Все отзывы
-            </a>
+            </Link>
           </div>
 
           {recentReviews.length === 0 ? (

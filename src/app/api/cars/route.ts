@@ -29,14 +29,23 @@ export async function POST(req: Request) {
   try {
     const data = await req.json();
 
+    if (!data.make || !data.model || !data.vin) {
+      return NextResponse.json({ error: "Марка, модель и VIN обязательны" }, { status: 400 });
+    }
+
+    const existing = await prisma.car.findUnique({ where: { vin: data.vin } });
+    if (existing) {
+      return NextResponse.json({ error: "Автомобиль с таким VIN уже существует" }, { status: 409 });
+    }
+
     const car = await prisma.car.create({
       data: {
         userId: user.id,
         make: data.make,
         model: data.model,
-        year: data.year,
+        year: Number(data.year) || new Date().getFullYear(),
         vin: data.vin,
-        mileage: data.mileage || 0,
+        mileage: Number(data.mileage) || 0,
         color: data.color || "",
         engine: data.engine || "",
         transmission: data.transmission || "",
@@ -49,7 +58,8 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json(car, { status: 201 });
-  } catch {
+  } catch (err) {
+    console.error("Car creation error:", err);
     return NextResponse.json({ error: "Ошибка при добавлении авто" }, { status: 500 });
   }
 }
