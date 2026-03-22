@@ -33,8 +33,14 @@ interface Client {
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(searchInput), 400);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   const fetchClients = (q: string) => {
     setLoading(true);
@@ -46,13 +52,8 @@ export default function ClientsPage() {
   };
 
   useEffect(() => {
-    fetchClients("");
-  }, []);
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
     fetchClients(search);
-  };
+  }, [search]);
 
   const totalVisits = clients.reduce((s, c) => s + c.totalVisits, 0);
   const repeatClients = clients.filter((c) => c.totalVisits > 1).length;
@@ -99,21 +100,16 @@ export default function ClientsPage() {
       </div>
 
       {/* Search */}
-      <form onSubmit={handleSearch} className="flex gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-dim" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Поиск по имени, телефону, email или автомобилю..."
-            className="input-field text-sm !pl-10 w-full"
-          />
-        </div>
-        <button type="submit" className="btn-primary text-sm px-5">
-          Найти
-        </button>
-      </form>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-dim" />
+        <input
+          type="text"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="Поиск по имени, телефону, email или автомобилю..."
+          className="input-field text-sm !pl-10 w-full"
+        />
+      </div>
 
       {/* Client List */}
       {loading ? (
@@ -124,7 +120,7 @@ export default function ClientsPage() {
         <div className="card-surface text-center py-12">
           <Users className="w-12 h-12 text-text-dim mx-auto mb-3" />
           <p className="text-text-muted">
-            {search ? "Клиенты не найдены" : "У вас пока нет клиентов"}
+            {searchInput ? "Клиенты не найдены" : "У вас пока нет клиентов"}
           </p>
         </div>
       ) : (

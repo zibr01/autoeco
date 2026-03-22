@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Ticket, Plus, Trash2, Percent, Calendar, Copy, Check } from "lucide-react";
+import { useToast } from "@/components/ui/Toast";
 
 interface Promo {
   id: string;
@@ -24,6 +25,8 @@ export default function BusinessPromosPage() {
   const [form, setForm] = useState(defaultForm);
   const [saving, setSaving] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [toggling, setToggling] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const fetchPromos = useCallback(async () => {
     setLoading(true);
@@ -68,6 +71,27 @@ export default function BusinessPromosPage() {
     navigator.clipboard.writeText(code);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 1500);
+  };
+
+  const handleToggleActive = async (promo: Promo) => {
+    setToggling(promo.id);
+    try {
+      const res = await fetch("/api/business/promos", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ promoId: promo.id, active: !promo.active }),
+      });
+      if (!res.ok) {
+        toast("Не удалось обновить статус", "error");
+        return;
+      }
+      toast(promo.active ? "Промокод деактивирован" : "Промокод активирован", "success");
+      await fetchPromos();
+    } catch {
+      toast("Ошибка сети", "error");
+    } finally {
+      setToggling(null);
+    }
   };
 
   return (
@@ -221,13 +245,27 @@ export default function BusinessPromosPage() {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => handleDelete(p.id)}
-                  className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"
-                  title="Удалить"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <button
+                    onClick={() => handleToggleActive(p)}
+                    disabled={toggling === p.id}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
+                      p.active
+                        ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                        : "bg-prussian/[0.06] text-text-dim hover:bg-prussian/[0.12]"
+                    }`}
+                    title={p.active ? "Деактивировать" : "Активировать"}
+                  >
+                    {p.active ? "Активен" : "Неактивен"}
+                  </button>
+                  <button
+                    onClick={() => handleDelete(p.id)}
+                    className="p-2 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
+                    title="Удалить"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
           ))}

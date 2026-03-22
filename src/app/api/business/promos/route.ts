@@ -58,6 +58,36 @@ export async function POST(req: Request) {
   }
 }
 
+export async function PATCH(req: Request) {
+  try {
+    const sc = await getBusinessServiceCenter();
+    if (!sc) return NextResponse.json({ error: "Нет доступа" }, { status: 403 });
+
+    const { promoId, active } = await req.json();
+
+    if (!promoId || typeof active !== "boolean") {
+      return NextResponse.json({ error: "Неверные данные" }, { status: 400 });
+    }
+
+    const promo = await prisma.promoCode.findFirst({
+      where: { id: promoId, serviceCenterId: sc.id },
+    });
+
+    if (!promo) {
+      return NextResponse.json({ error: "Промокод не найден" }, { status: 404 });
+    }
+
+    const updated = await prisma.promoCode.update({
+      where: { id: promoId },
+      data: { active },
+    });
+
+    return NextResponse.json(updated);
+  } catch {
+    return NextResponse.json({ error: "Ошибка обновления" }, { status: 500 });
+  }
+}
+
 export async function DELETE(req: Request) {
   try {
     const sc = await getBusinessServiceCenter();

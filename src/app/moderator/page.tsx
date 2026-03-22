@@ -19,6 +19,8 @@ import {
   Star,
   Trash2,
   Pencil,
+  MessageSquare,
+  ChevronDown,
 } from "lucide-react";
 
 interface ServiceItem {
@@ -40,6 +42,18 @@ interface ServiceItem {
 }
 
 type FilterTab = "all" | "verified" | "pending";
+type TopTab = "services" | "reviews";
+
+interface ReviewItem {
+  id: string;
+  author: string;
+  rating: number;
+  date: string;
+  text: string;
+  carModel: string;
+  serviceCenter: { id: string; name: string };
+  user: { id: string; name: string | null; email: string; image: string | null } | null;
+}
 
 const serviceTypes = [
   { value: "sto", label: "СТО" },
@@ -66,6 +80,15 @@ export default function ModeratorPage() {
   const [editingService, setEditingService] = useState<ServiceItem | null>(null);
   const [filterTab, setFilterTab] = useState<FilterTab>("all");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [topTab, setTopTab] = useState<TopTab>("services");
+
+  // Reviews state
+  const [reviews, setReviews] = useState<ReviewItem[]>([]);
+  const [reviewsTotal, setReviewsTotal] = useState(0);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsLoaded, setReviewsLoaded] = useState(false);
+  const [expandedReviews, setExpandedReviews] = useState<Set<string>>(new Set());
+  const [loadingMoreReviews, setLoadingMoreReviews] = useState(false);
 
   const userRole = (session?.user as { role?: string })?.role;
   const isAllowed = userRole === "MODERATOR" || userRole === "ADMIN";
@@ -141,6 +164,66 @@ export default function ModeratorPage() {
     }
   };
 
+  // Load reviews when tab switches
+  useEffect(() => {
+    if (topTab === "reviews" && !reviewsLoaded && isAllowed && status === "authenticated") {
+      setReviewsLoading(true);
+      fetch("/api/moderator/reviews?take=20&skip=0")
+        .then((r) => r.json())
+        .then((data) => {
+          setReviews(data.reviews || []);
+          setReviewsTotal(data.total || 0);
+          setReviewsLoaded(true);
+        })
+        .catch(() => {})
+        .finally(() => setReviewsLoading(false));
+    }
+  }, [topTab, reviewsLoaded, isAllowed, status]);
+
+  const loadMoreReviews = async () => {
+    setLoadingMoreReviews(true);
+    try {
+      const res = await fetch(`/api/moderator/reviews?take=20&skip=${reviews.length}`);
+      const data = await res.json();
+      setReviews((prev) => [...prev, ...(data.reviews || [])]);
+      setReviewsTotal(data.total || 0);
+    } catch {
+      toast("Ошибка загрузки отзывов", "error");
+    } finally {
+      setLoadingMoreReviews(false);
+    }
+  };
+
+  const deleteReview = async (review: ReviewItem) => {
+    if (!window.confirm("Удалить этот отзыв?")) return;
+    setActionLoading(review.id);
+    try {
+      const res = await fetch(`/api/moderator/reviews?id=${review.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      setReviews((prev) => prev.filter((r) => r.id !== review.id));
+      setReviewsTotal((prev) => prev - 1);
+      toast("Отзыв удалён", "success");
+    } catch {
+      toast("Ошибка при удалении отзыва", "error");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const toggleExpandReview = (id: string) => {
+    setExpandedReviews((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" });
+  };
+
   if (loading || status === "loading") {
     return (
       <AppLayout>
@@ -173,9 +256,152 @@ export default function ModeratorPage() {
           <Shield className="w-6 h-6 text-brand-light" />
           <h1 className="text-2xl font-bold text-text">Панель модератора</h1>
         </div>
-        <p className="text-text-muted text-sm">Управление сервисами и филиалами</p>
+        <p className="text-text-muted text-sm">Управление сервисами и контентом</p>
       </div>
 
+      {/* Top-level tabs */}
+      <div className="flex gap-2 mb-6">
+        <button
+          onClick={() => setTopTab("services")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+            topTab === "services"
+              ? "bg-brand/20 text-brand-light border border-brand/30"
+              : "glass text-text-muted hover:text-text"
+          }`}
+        >
+          <Building2 className="w-4 h-4" />
+          Сервисы
+        </button>
+        <button
+          onClick={() => setTopTab("reviews")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+            topTab === "reviews"
+              ? "bg-brand/20 text-brand-light border border-brand/30"
+              : "glass text-text-muted hover:text-text"
+          }`}
+        >
+          <MessageSquare className="w-4 h-4" />
+          Отзывы
+          {reviewsLoaded && (
+            <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+              topTab === "reviews" ? "bg-brand/30 text-brand-light" : "bg-white/5 text-text-dim"
+            }`}>
+              {reviewsTotal}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Reviews tab */}
+      {topTab === "reviews" && (
+        <div>
+          {reviewsLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="w-8 h-8 text-brand animate-spin" />
+            </div>
+          ) : (
+            <>
+              {/* Reviews stats */}
+              <div className="glass rounded-xl p-4 text-center mb-6">
+                <MessageSquare className="w-5 h-5 text-brand-light mx-auto mb-1" />
+                <div className="text-2xl font-bold text-text">{reviewsTotal}</div>
+                <div className="text-xs text-text-muted">Всего отзывов</div>
+              </div>
+
+              {/* Reviews list */}
+              <div className="space-y-2">
+                {reviews.length === 0 && (
+                  <div className="glass rounded-xl p-8 text-center text-text-muted text-sm">
+                    Нет отзывов
+                  </div>
+                )}
+                {reviews.map((review) => {
+                  const isExpanded = expandedReviews.has(review.id);
+                  const isLong = review.text.length > 200;
+                  const displayText = isLong && !isExpanded ? review.text.slice(0, 200) + "..." : review.text;
+
+                  return (
+                    <div key={review.id} className="card-surface">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center flex-shrink-0">
+                          <MessageSquare className="w-5 h-5 text-brand-light" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <span className="font-medium text-text text-sm">{review.author}</span>
+                            <div className="flex items-center gap-0.5">
+                              {Array.from({ length: 5 }, (_, i) => (
+                                <Star
+                                  key={i}
+                                  className={`w-3 h-3 ${
+                                    i < review.rating ? "text-amber-400 fill-amber-400" : "text-gray-600"
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                            <span className="text-xs text-text-dim">{formatDate(review.date)}</span>
+                          </div>
+                          <p className="text-sm text-text-muted leading-relaxed mb-1.5">
+                            {displayText}
+                          </p>
+                          {isLong && (
+                            <button
+                              onClick={() => toggleExpandReview(review.id)}
+                              className="text-xs text-brand-light hover:underline flex items-center gap-1 mb-1.5"
+                            >
+                              {isExpanded ? "свернуть" : "показать полностью"}
+                              <ChevronDown className={`w-3 h-3 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                            </button>
+                          )}
+                          <div className="flex items-center gap-1.5 text-xs text-text-dim">
+                            <Building2 className="w-3 h-3" />
+                            {review.serviceCenter.name}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-end mt-3 pt-3 border-t border-[var(--border)]">
+                        <button
+                          onClick={() => deleteReview(review)}
+                          disabled={actionLoading === review.id}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors disabled:opacity-50"
+                        >
+                          {actionLoading === review.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-3.5 h-3.5" />
+                          )}
+                          Удалить
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Load more */}
+              {reviews.length < reviewsTotal && (
+                <div className="flex justify-center mt-4">
+                  <button
+                    onClick={loadMoreReviews}
+                    disabled={loadingMoreReviews}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium glass text-text-muted hover:text-text transition-colors disabled:opacity-50"
+                  >
+                    {loadingMoreReviews ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4" />
+                    )}
+                    Загрузить ещё
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {topTab === "services" && (<>
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="glass rounded-xl p-4 text-center">
@@ -333,6 +559,8 @@ export default function ModeratorPage() {
           </div>
         ))}
       </div>
+
+      </>)}
 
       {/* Add service modal */}
       {showAddForm && (

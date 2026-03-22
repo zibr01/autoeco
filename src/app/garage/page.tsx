@@ -30,6 +30,7 @@ import {
   SkipForward,
   Save,
 } from "lucide-react";
+import { Skeleton, CardSkeleton } from "@/components/ui/Skeleton";
 
 interface ReminderData {
   id: string;
@@ -96,8 +97,14 @@ export default function GaragePage() {
   if (authStatus === "loading" || loading) {
     return (
       <AppLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="w-8 h-8 text-brand-light animate-spin" />
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-8 w-40" />
+            <Skeleton className="h-10 w-36 rounded-xl" />
+          </div>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <CardSkeleton key={i} />
+          ))}
         </div>
       </AppLayout>
     );
