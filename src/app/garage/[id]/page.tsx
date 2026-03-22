@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import AppLayout from "@/components/layout/AppLayout";
+import { useToast } from "@/components/ui/Toast";
 import {
   ChevronLeft,
   Car,
@@ -192,6 +193,7 @@ export default function CarProfilePage() {
   const { id } = useParams<{ id: string }>();
   const { status } = useSession();
   const router = useRouter();
+  const { toast } = useToast();
   const [car, setCar] = useState<CarData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("Журнал ТО");
@@ -268,6 +270,10 @@ export default function CarProfilePage() {
   const handleMileageUpdate = async () => {
     const val = Number(newMileage);
     if (!val || val <= 0) return;
+    if (car && val < car.mileage) {
+      toast("Пробег не может быть меньше текущего", "warning");
+      return;
+    }
     setMileageLoading(true);
     try {
       const res = await fetch(`/api/cars/${id}`, {
@@ -281,7 +287,7 @@ export default function CarProfilePage() {
         setNewMileage("");
       }
     } catch {
-      // silent
+      toast("Не удалось обновить пробег", "error");
     } finally {
       setMileageLoading(false);
     }
@@ -993,11 +999,11 @@ export default function CarProfilePage() {
                     if (res.ok) {
                       router.push("/garage");
                     } else {
-                      alert("Ошибка при удалении автомобиля");
+                      toast("Ошибка при удалении автомобиля", "error");
                       setDeleting(false);
                     }
                   } catch {
-                    alert("Ошибка сети");
+                    toast("Ошибка сети. Попробуйте позже", "error");
                     setDeleting(false);
                   }
                 }}

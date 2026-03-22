@@ -48,7 +48,7 @@ export async function PATCH(req: NextRequest) {
   }
 
   const body = await req.json();
-  const allowed = ["name", "address", "district", "city", "phone", "hours", "description", "priceFrom", "clubDiscount"];
+  const allowed = ["name", "type", "typeName", "address", "district", "city", "phone", "hours", "description", "priceFrom", "clubDiscount"];
   const data: Record<string, unknown> = {};
 
   for (const key of allowed) {

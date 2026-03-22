@@ -94,7 +94,7 @@ export default function NotificationsPage() {
   };
 
   const handleClick = async (n: Notification) => {
-    if (!n.read && !n.id.startsWith("reminder-")) {
+    if (!n.read) {
       await fetch(`/api/notifications/${n.id}`, { method: "PATCH" });
       setNotifications((prev) => prev.map((x) => x.id === n.id ? { ...x, read: true } : x));
       setUnreadCount((c) => Math.max(0, c - 1));

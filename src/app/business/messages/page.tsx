@@ -48,7 +48,7 @@ export default function BusinessMessagesPage() {
   useEffect(() => {
     if (activeChat) {
       fetchMessages(activeChat);
-      pollRef.current = setInterval(() => fetchMessages(activeChat), 5000);
+      pollRef.current = setInterval(() => fetchMessages(activeChat), 15000);
       return () => {
         if (pollRef.current) clearInterval(pollRef.current);
       };

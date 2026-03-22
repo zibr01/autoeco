@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import AppLayout from "@/components/layout/AppLayout";
+import { useToast } from "@/components/ui/Toast";
 import {
   ChevronLeft,
   ChevronRight,
@@ -68,6 +69,7 @@ export default function ServiceProfilePage() {
   const { id } = useParams<{ id: string }>();
   const { data: session, status: authStatus } = useSession();
   const router = useRouter();
+  const { toast } = useToast();
   const [service, setService] = useState<ServiceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [cars, setCars] = useState<CarItem[]>([]);
@@ -165,7 +167,7 @@ export default function ServiceProfilePage() {
         setIsFavorite(true);
       }
     } catch {
-      // silently fail
+      toast("Не удалось выполнить действие", "error");
     } finally {
       setFavLoading(false);
     }
@@ -236,7 +238,7 @@ export default function ServiceProfilePage() {
     }
 
     if (!selectedCarId) {
-      alert("Сначала добавьте автомобиль в гараж");
+      toast("Сначала добавьте автомобиль в гараж", "warning");
       router.push("/garage");
       return;
     }
@@ -259,12 +261,13 @@ export default function ServiceProfilePage() {
 
       if (res.ok) {
         setBooked(true);
+        toast("Запись успешно создана!", "success");
       } else {
         const err = await res.json();
-        alert(err.error || "Ошибка при записи");
+        toast(err.error || "Ошибка при записи", "error");
       }
     } catch {
-      alert("Ошибка сети");
+      toast("Ошибка сети. Попробуйте позже", "error");
     } finally {
       setBooking(false);
     }
@@ -443,7 +446,7 @@ export default function ServiceProfilePage() {
           <div className="w-20 h-20 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center mx-auto mb-6">
             <CheckCircle2 className="w-10 h-10 text-emerald-400" />
           </div>
-          <h2 className="text-2xl font-bold text-text mb-3">Запись подтверждена!</h2>
+          <h2 className="text-2xl font-bold text-text mb-3">Запись создана!</h2>
           <div className="glass rounded-2xl p-6 mb-6 text-left space-y-3">
             <div className="flex justify-between">
               <span className="text-text-muted">Сервис</span>
@@ -474,12 +477,12 @@ export default function ServiceProfilePage() {
             Подтверждение отправлено. Напоминание придёт за 24 часа.
           </p>
           <div className="flex gap-3 justify-center">
-            <Link href="/garage" className="btn-primary">
-              В мой гараж
+            <Link href="/dashboard" className="btn-primary">
+              К моим записям
             </Link>
-            <Link href="/services" className="btn-ghost">
-              К сервисам
-            </Link>
+            <button onClick={() => setBooked(false)} className="btn-ghost">
+              Вернуться
+            </button>
           </div>
         </div>
       </AppLayout>

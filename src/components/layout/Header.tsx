@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { Bell, Car, ChevronDown, Menu, User, X, LogOut, Settings, LayoutDashboard, Sun, Moon, Building2, AlertTriangle, Clock, CalendarCheck, Star, MessageSquare, Ticket, CheckCircle2, Award, Crown } from "lucide-react";
+import { Bell, Car, ChevronDown, Menu, User, X, LogOut, Settings, LayoutDashboard, Sun, Moon, Building2, AlertTriangle, Clock, CalendarCheck, Star, MessageSquare, Ticket, CheckCircle2, Award, Crown, Shield } from "lucide-react";
 import { useTheme } from "@/components/providers/ThemeProvider";
 
 interface Notification {
@@ -286,6 +286,16 @@ export default function Header() {
                         >
                           <CheckCircle2 className="w-4 h-4" />
                           Модерация
+                        </Link>
+                      )}
+                      {session?.user?.role === "ADMIN" && (
+                        <Link
+                          href="/admin"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/[0.04] transition-all"
+                        >
+                          <Shield className="w-4 h-4" />
+                          Админ-панель
                         </Link>
                       )}
                       <Link

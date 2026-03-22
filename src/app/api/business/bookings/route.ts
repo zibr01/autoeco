@@ -73,7 +73,7 @@ export async function PATCH(req: NextRequest) {
   const statusMessages: Record<string, { type: string; title: string }> = {
     confirmed: { type: "booking_confirmed", title: "Запись подтверждена" },
     cancelled: { type: "booking_cancelled", title: "Запись отменена сервисом" },
-    completed: { type: "booking_confirmed", title: "Визит завершён" },
+    completed: { type: "booking_completed", title: "Визит завершён" },
   };
 
   const msg = statusMessages[status];

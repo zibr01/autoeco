@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import AppLayout from "@/components/layout/AppLayout";
+import { useToast } from "@/components/ui/Toast";
 import {
   Bot,
   Send,
@@ -44,6 +45,7 @@ const suggestedSymptoms = [
 ];
 
 export default function DiagnosticsPage() {
+  const { toast } = useToast();
   const { status: authStatus } = useSession();
   const [cars, setCars] = useState<CarItem[]>([]);
   const [selectedCar, setSelectedCar] = useState<CarItem | null>(null);
@@ -63,7 +65,7 @@ export default function DiagnosticsPage() {
           setCars(list);
           if (list.length > 0) setSelectedCar(list[0]);
         })
-        .catch(() => {});
+        .catch(() => { toast("Не удалось загрузить список автомобилей", "error"); });
     }
   }, [authStatus]);
 
@@ -104,6 +106,7 @@ export default function DiagnosticsPage() {
       }
     } catch {
       setIsTyping(false);
+      toast("AI-диагностика временно недоступна", "error");
       setMessages((prev) => [
         ...prev,
         { role: "ai", text: "Произошла ошибка. Попробуйте ещё раз.", type: "question" },

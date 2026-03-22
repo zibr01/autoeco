@@ -21,6 +21,8 @@ export async function GET() {
       district: true,
       city: true,
       phone: true,
+      hours: true,
+      description: true,
       verified: true,
       featured: true,
       rating: true,
@@ -75,10 +77,102 @@ export async function POST(req: Request) {
       rating: 0,
       reviewCount: 0,
       priceFrom: data.priceFrom ? Number(data.priceFrom) : 0,
-      verified: false, // Unverified by default — added by moderator
+      verified: false,
       featured: false,
     },
   });
 
   return NextResponse.json(service, { status: 201 });
+}
+
+export async function PATCH(req: Request) {
+  const user = await getCurrentUser();
+  if (!user || !ALLOWED_ROLES.includes(user.role)) {
+    return NextResponse.json({ error: "Нет доступа" }, { status: 403 });
+  }
+
+  const data = await req.json();
+
+  if (!data.id) {
+    return NextResponse.json(
+      { error: "ID сервиса обязателен" },
+      { status: 400 }
+    );
+  }
+
+  const existing = await prisma.serviceCenter.findUnique({
+    where: { id: data.id },
+  });
+
+  if (!existing) {
+    return NextResponse.json(
+      { error: "Сервис не найден" },
+      { status: 404 }
+    );
+  }
+
+  const allowedFields = [
+    "name",
+    "address",
+    "phone",
+    "hours",
+    "description",
+    "verified",
+    "featured",
+    "type",
+    "typeName",
+  ];
+
+  const updateData: Record<string, unknown> = {};
+  for (const field of allowedFields) {
+    if (data[field] !== undefined) {
+      updateData[field] = data[field];
+    }
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    return NextResponse.json(
+      { error: "Нет полей для обновления" },
+      { status: 400 }
+    );
+  }
+
+  const updated = await prisma.serviceCenter.update({
+    where: { id: data.id },
+    data: updateData,
+  });
+
+  return NextResponse.json(updated);
+}
+
+export async function DELETE(req: Request) {
+  const user = await getCurrentUser();
+  if (!user || !ALLOWED_ROLES.includes(user.role)) {
+    return NextResponse.json({ error: "Нет доступа" }, { status: 403 });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get("id");
+
+  if (!id) {
+    return NextResponse.json(
+      { error: "ID сервиса обязателен" },
+      { status: 400 }
+    );
+  }
+
+  const existing = await prisma.serviceCenter.findUnique({
+    where: { id },
+  });
+
+  if (!existing) {
+    return NextResponse.json(
+      { error: "Сервис не найден" },
+      { status: 404 }
+    );
+  }
+
+  await prisma.serviceCenter.delete({ where: { id } });
+
+  return NextResponse.json({ success: true });
 }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
+import { useToast } from "@/components/ui/Toast";
 import {
   Heart,
   HeartOff,
@@ -45,6 +46,7 @@ const serviceTypeColors: Record<string, string> = {
 export default function FavoritesPage() {
   const { status } = useSession();
   const router = useRouter();
+  const { toast } = useToast();
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [removing, setRemoving] = useState<string | null>(null);
@@ -68,7 +70,7 @@ export default function FavoritesPage() {
       await fetch(`/api/favorites/${serviceCenterId}`, { method: "DELETE" });
       setFavorites((prev) => prev.filter((f) => f.serviceCenterId !== serviceCenterId));
     } catch {
-      // ignore
+      toast("Не удалось удалить из избранного", "error");
     } finally {
       setRemoving(null);
     }

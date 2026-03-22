@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import SessionProvider from "@/components/providers/SessionProvider";
 import ThemeProvider from "@/components/providers/ThemeProvider";
+import { ToastProvider } from "@/components/ui/Toast";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -45,7 +46,9 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         <ThemeProvider>
-          <SessionProvider>{children}</SessionProvider>
+          <ToastProvider>
+            <SessionProvider>{children}</SessionProvider>
+          </ToastProvider>
         </ThemeProvider>
       </body>
     </html>

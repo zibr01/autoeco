@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/components/ui/Toast";
 import AppLayout from "@/components/layout/AppLayout";
 import {
   Shield,
@@ -15,7 +16,9 @@ import {
   X,
   Building2,
   Users,
-  BarChart3,
+  Star,
+  Trash2,
+  Pencil,
 } from "lucide-react";
 
 interface ServiceItem {
@@ -27,12 +30,16 @@ interface ServiceItem {
   district: string;
   city: string;
   phone: string;
+  hours?: string;
+  description?: string;
   verified: boolean;
   featured: boolean;
   rating: number;
   reviewCount: number;
   ownerId: string | null;
 }
+
+type FilterTab = "all" | "verified" | "pending";
 
 const serviceTypes = [
   { value: "sto", label: "СТО" },
@@ -52,9 +59,13 @@ const districts = [
 export default function ModeratorPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { toast } = useToast();
   const [services, setServices] = useState<ServiceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingService, setEditingService] = useState<ServiceItem | null>(null);
+  const [filterTab, setFilterTab] = useState<FilterTab>("all");
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const userRole = (session?.user as { role?: string })?.role;
   const isAllowed = userRole === "MODERATOR" || userRole === "ADMIN";
@@ -77,6 +88,59 @@ export default function ModeratorPage() {
     }
   }, [status, isAllowed, router]);
 
+  const toggleVerified = async (service: ServiceItem) => {
+    setActionLoading(service.id);
+    try {
+      const res = await fetch("/api/moderator/services", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: service.id, verified: !service.verified }),
+      });
+      if (!res.ok) throw new Error();
+      const updated = await res.json();
+      setServices((prev) => prev.map((s) => (s.id === updated.id ? { ...s, ...updated } : s)));
+      toast(service.verified ? "Верификация снята" : "Сервис верифицирован", "success");
+    } catch {
+      toast("Ошибка при обновлении верификации", "error");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const toggleFeatured = async (service: ServiceItem) => {
+    setActionLoading(service.id);
+    try {
+      const res = await fetch("/api/moderator/services", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: service.id, featured: !service.featured }),
+      });
+      if (!res.ok) throw new Error();
+      const updated = await res.json();
+      setServices((prev) => prev.map((s) => (s.id === updated.id ? { ...s, ...updated } : s)));
+      toast(service.featured ? "Убран из Featured" : "Добавлен в Featured", "success");
+    } catch {
+      toast("Ошибка при обновлении Featured", "error");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const deleteService = async (service: ServiceItem) => {
+    if (!window.confirm(`Удалить "${service.name}"? Это действие нельзя отменить.`)) return;
+    setActionLoading(service.id);
+    try {
+      const res = await fetch(`/api/moderator/services?id=${service.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      setServices((prev) => prev.filter((s) => s.id !== service.id));
+      toast("Сервис удалён", "success");
+    } catch {
+      toast("Ошибка при удалении сервиса", "error");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   if (loading || status === "loading") {
     return (
       <AppLayout>
@@ -89,6 +153,18 @@ export default function ModeratorPage() {
 
   const verifiedCount = services.filter((s) => s.verified).length;
   const unverifiedCount = services.filter((s) => !s.verified).length;
+
+  const filteredServices = services.filter((s) => {
+    if (filterTab === "verified") return s.verified;
+    if (filterTab === "pending") return !s.verified;
+    return true;
+  });
+
+  const filterTabs: { key: FilterTab; label: string; count: number }[] = [
+    { key: "all", label: "Все", count: services.length },
+    { key: "verified", label: "Верифицированные", count: verifiedCount },
+    { key: "pending", label: "На проверке", count: unverifiedCount },
+  ];
 
   return (
     <AppLayout>
@@ -119,6 +195,28 @@ export default function ModeratorPage() {
         </div>
       </div>
 
+      {/* Filter tabs */}
+      <div className="flex gap-2 mb-4 overflow-x-auto">
+        {filterTabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setFilterTab(tab.key)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+              filterTab === tab.key
+                ? "bg-brand/20 text-brand-light border border-brand/30"
+                : "glass text-text-muted hover:text-text"
+            }`}
+          >
+            {tab.label}
+            <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+              filterTab === tab.key ? "bg-brand/30 text-brand-light" : "bg-white/5 text-text-dim"
+            }`}>
+              {tab.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
       {/* Add button */}
       <div className="flex justify-end mb-4">
         <button
@@ -132,41 +230,105 @@ export default function ModeratorPage() {
 
       {/* Services list */}
       <div className="space-y-2">
-        {services.map((service) => (
-          <div key={service.id} className="card-surface flex items-center gap-4">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-              service.verified ? "bg-emerald-500/20" : "bg-gray-500/20"
-            }`}>
-              <Building2 className={`w-5 h-5 ${service.verified ? "text-emerald-400" : "text-gray-400"}`} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-text text-sm">{service.name}</span>
-                <span className="tag text-[10px]">{service.typeName}</span>
-                {service.verified && (
-                  <span className="flex items-center gap-0.5 text-[10px] text-emerald-400">
-                    <CheckCircle2 className="w-3 h-3" /> Верифицирован
-                  </span>
-                )}
-                {!service.verified && !service.ownerId && (
-                  <span className="text-[10px] text-text-dim">Добавлен модератором</span>
-                )}
+        {filteredServices.length === 0 && (
+          <div className="glass rounded-xl p-8 text-center text-text-muted text-sm">
+            Нет сервисов в этой категории
+          </div>
+        )}
+        {filteredServices.map((service) => (
+          <div key={service.id} className="card-surface">
+            <div
+              className="flex items-center gap-4 cursor-pointer"
+              onClick={() => setEditingService(service)}
+              title="Нажмите для редактирования"
+            >
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                service.verified ? "bg-emerald-500/20" : "bg-gray-500/20"
+              }`}>
+                <Building2 className={`w-5 h-5 ${service.verified ? "text-emerald-400" : "text-gray-400"}`} />
               </div>
-              <div className="flex items-center gap-3 text-xs text-text-dim mt-0.5">
-                <span className="flex items-center gap-1">
-                  <MapPin className="w-3 h-3" />
-                  {service.address}
-                </span>
-                {service.phone && (
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-medium text-text text-sm">{service.name}</span>
+                  <span className="tag text-[10px]">{service.typeName}</span>
+                  {service.verified && (
+                    <span className="flex items-center gap-0.5 text-[10px] text-emerald-400">
+                      <CheckCircle2 className="w-3 h-3" /> Верифицирован
+                    </span>
+                  )}
+                  {service.featured && (
+                    <span className="flex items-center gap-0.5 text-[10px] text-amber-400">
+                      <Star className="w-3 h-3 fill-amber-400" /> Featured
+                    </span>
+                  )}
+                  {!service.verified && !service.ownerId && (
+                    <span className="text-[10px] text-text-dim">Добавлен модератором</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 text-xs text-text-dim mt-0.5">
                   <span className="flex items-center gap-1">
-                    <Phone className="w-3 h-3" />
-                    {service.phone}
+                    <MapPin className="w-3 h-3" />
+                    {service.address}
                   </span>
-                )}
+                  {service.phone && (
+                    <span className="flex items-center gap-1">
+                      <Phone className="w-3 h-3" />
+                      {service.phone}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="text-right text-xs text-text-dim flex-shrink-0">
+                {service.rating > 0 && <span>{service.rating.toFixed(1)}</span>}
               </div>
             </div>
-            <div className="text-right text-xs text-text-dim">
-              {service.rating > 0 && <span>{service.rating.toFixed(1)}</span>}
+
+            {/* Action buttons */}
+            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[var(--border)]">
+              <button
+                onClick={(e) => { e.stopPropagation(); toggleVerified(service); }}
+                disabled={actionLoading === service.id}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
+                  service.verified
+                    ? "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/20"
+                    : "bg-white/5 text-text-muted hover:bg-white/10 border border-[var(--border)]"
+                }`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                {service.verified ? "Снять верификацию" : "Верифицировать"}
+              </button>
+
+              <button
+                onClick={(e) => { e.stopPropagation(); toggleFeatured(service); }}
+                disabled={actionLoading === service.id}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 ${
+                  service.featured
+                    ? "bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 border border-amber-500/20"
+                    : "bg-white/5 text-text-muted hover:bg-white/10 border border-[var(--border)]"
+                }`}
+              >
+                <Star className={`w-3.5 h-3.5 ${service.featured ? "fill-amber-400" : ""}`} />
+                Featured
+              </button>
+
+              <button
+                onClick={(e) => { e.stopPropagation(); setEditingService(service); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-text-muted hover:bg-white/10 border border-[var(--border)] transition-colors"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                Изменить
+              </button>
+
+              <div className="flex-1" />
+
+              <button
+                onClick={(e) => { e.stopPropagation(); deleteService(service); }}
+                disabled={actionLoading === service.id}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Удалить
+              </button>
             </div>
           </div>
         ))}
@@ -174,11 +336,47 @@ export default function ModeratorPage() {
 
       {/* Add service modal */}
       {showAddForm && (
-        <AddServiceModal
+        <ServiceFormModal
+          title="Добавить филиал"
+          submitLabel="Добавить филиал"
           onClose={() => setShowAddForm(false)}
-          onAdded={(service) => {
+          onSubmit={async (formData) => {
+            const res = await fetch("/api/moderator/services", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(formData),
+            });
+            if (!res.ok) {
+              const data = await res.json();
+              throw new Error(data.error || "Ошибка при добавлении");
+            }
+            const service = await res.json();
             setServices((prev) => [...prev, service]);
-            setShowAddForm(false);
+            toast("Филиал успешно добавлен", "success");
+          }}
+        />
+      )}
+
+      {/* Edit service modal */}
+      {editingService && (
+        <ServiceFormModal
+          title="Редактировать сервис"
+          submitLabel="Сохранить изменения"
+          initialData={editingService}
+          onClose={() => setEditingService(null)}
+          onSubmit={async (formData) => {
+            const res = await fetch("/api/moderator/services", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: editingService.id, ...formData }),
+            });
+            if (!res.ok) {
+              const data = await res.json();
+              throw new Error(data.error || "Ошибка при сохранении");
+            }
+            const updated = await res.json();
+            setServices((prev) => prev.map((s) => (s.id === updated.id ? { ...s, ...updated } : s)));
+            toast("Сервис успешно обновлён", "success");
           }}
         />
       )}
@@ -186,23 +384,28 @@ export default function ModeratorPage() {
   );
 }
 
-function AddServiceModal({
+function ServiceFormModal({
+  title,
+  submitLabel,
+  initialData,
   onClose,
-  onAdded,
+  onSubmit,
 }: {
+  title: string;
+  submitLabel: string;
+  initialData?: ServiceItem;
   onClose: () => void;
-  onAdded: (service: ServiceItem) => void;
+  onSubmit: (data: Record<string, string>) => Promise<void>;
 }) {
   const [form, setForm] = useState({
-    name: "",
-    type: "sto",
-    address: "",
-    district: "",
-    city: "Самара",
-    phone: "",
-    hours: "",
-    description: "",
-    priceFrom: "",
+    name: initialData?.name ?? "",
+    type: initialData?.type ?? "sto",
+    address: initialData?.address ?? "",
+    district: initialData?.district ?? "",
+    city: initialData?.city ?? "Самара",
+    phone: initialData?.phone ?? "",
+    hours: initialData?.hours ?? "",
+    description: initialData?.description ?? "",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -222,23 +425,11 @@ function AddServiceModal({
 
     setLoading(true);
     try {
-      const res = await fetch("/api/moderator/services", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || "Ошибка при добавлении");
-        setLoading(false);
-        return;
-      }
-
-      const service = await res.json();
-      onAdded(service);
-    } catch {
-      setError("Ошибка сети");
+      await onSubmit(form);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка сети");
+    } finally {
       setLoading(false);
     }
   };
@@ -248,7 +439,7 @@ function AddServiceModal({
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl">
         <div className="sticky top-0 bg-[var(--bg-card)] flex items-center justify-between p-5 border-b border-[var(--border)] z-10">
-          <h2 className="text-lg font-bold text-text">Добавить филиал</h2>
+          <h2 className="text-lg font-bold text-text">{title}</h2>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--hover-bg)] transition-colors">
             <X className="w-5 h-5 text-text-muted" />
           </button>
@@ -262,11 +453,13 @@ function AddServiceModal({
             </div>
           )}
 
-          <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/15">
-            <p className="text-xs text-amber-400">
-              Филиал будет добавлен как <strong>незарегистрированный</strong>. Для верификации владелец должен зарегистрироваться как бизнес.
-            </p>
-          </div>
+          {!initialData && (
+            <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/15">
+              <p className="text-xs text-amber-400">
+                Филиал будет добавлен как <strong>незарегистрированный</strong>. Для верификации владелец должен зарегистрироваться как бизнес.
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Название *</label>
@@ -323,12 +516,12 @@ function AddServiceModal({
             {loading ? (
               <span className="flex items-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Добавляем...
+                Сохраняем...
               </span>
             ) : (
               <span className="flex items-center gap-2">
-                <Plus className="w-4 h-4" />
-                Добавить филиал
+                {initialData ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                {submitLabel}
               </span>
             )}
           </button>

@@ -81,8 +81,8 @@ function MessagesPage() {
   useEffect(() => {
     if (activeChat) {
       fetchMessages(activeChat);
-      // Poll for new messages every 5 seconds
-      pollRef.current = setInterval(() => fetchMessages(activeChat), 5000);
+      // Poll for new messages every 15 seconds
+      pollRef.current = setInterval(() => fetchMessages(activeChat), 15000);
       return () => {
         if (pollRef.current) clearInterval(pollRef.current);
       };

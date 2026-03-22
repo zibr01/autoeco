@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
+import { useToast } from "@/components/ui/Toast";
 import {
   User,
   Car,
@@ -71,6 +72,7 @@ const statusLabel: Record<string, { text: string; class: string }> = {
 export default function ProfilePage() {
   const { data: session, status: authStatus } = useSession();
   const router = useRouter();
+  const { toast } = useToast();
   const [tab, setTab] = useState<Tab>("profile");
   const [profile, setProfile] = useState<Profile | null>(null);
   const [cars, setCars] = useState<CarItem[]>([]);
@@ -93,7 +95,7 @@ export default function ProfilePage() {
           setCars(Array.isArray(carsData) ? carsData : []);
           setBookings(Array.isArray(bookingsData) ? bookingsData : []);
         })
-        .catch(() => {})
+        .catch(() => { toast("Не удалось загрузить данные профиля", "error"); })
         .finally(() => setLoading(false));
     }
   }, [authStatus, router]);
@@ -184,6 +186,7 @@ export default function ProfilePage() {
 }
 
 function ProfileTab({ profile, cars }: { profile: Profile | null; cars: CarItem[] }) {
+  const { toast } = useToast();
   const [name, setName] = useState(profile?.name || "");
   const [phone, setPhone] = useState(profile?.phone || "");
   const [city, setCity] = useState(profile?.city || "");
@@ -201,11 +204,12 @@ function ProfileTab({ profile, cars }: { profile: Profile | null; cars: CarItem[
       if (res.ok) {
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
+        toast("Профиль успешно сохранён", "success");
       } else {
-        alert("Ошибка при сохранении профиля");
+        toast("Ошибка при сохранении профиля", "error");
       }
     } catch {
-      alert("Ошибка сети. Попробуйте позже.");
+      toast("Ошибка сети. Попробуйте позже", "error");
     }
     setSaving(false);
   };
@@ -389,6 +393,7 @@ function CarsTab({ cars }: { cars: CarItem[] }) {
 }
 
 function BookingsTab({ bookings: initialBookings }: { bookings: BookingItem[] }) {
+  const { toast } = useToast();
   const [bookings, setBookings] = useState(initialBookings);
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [reviewBooking, setReviewBooking] = useState<BookingItem | null>(null);
@@ -410,7 +415,9 @@ function BookingsTab({ bookings: initialBookings }: { bookings: BookingItem[] })
         const updated = await res.json();
         setBookings((prev) => prev.map((b) => (b.id === updated.id ? { ...b, status: updated.status } : b)));
       }
-    } catch {}
+    } catch {
+      toast("Не удалось отменить запись", "error");
+    }
     setCancelling(null);
   };
 
@@ -434,7 +441,9 @@ function BookingsTab({ bookings: initialBookings }: { bookings: BookingItem[] })
         setReviewText("");
         setReviewRating(5);
       }
-    } catch {}
+    } catch {
+      toast("Не удалось отправить отзыв", "error");
+    }
     setReviewSending(false);
   };
 
@@ -593,6 +602,7 @@ function BookingsTab({ bookings: initialBookings }: { bookings: BookingItem[] })
 }
 
 function SettingsTab() {
+  const { toast } = useToast();
   const [settings, setSettings] = useState({
     reminderTO: true,
     reminderDocs: true,
@@ -623,7 +633,9 @@ function SettingsTab() {
     if (stored) {
       try {
         setSettings(JSON.parse(stored));
-      } catch {}
+      } catch {
+        toast("Не удалось загрузить настройки", "error");
+      }
     }
   }, []);
 
@@ -634,7 +646,9 @@ function SettingsTab() {
       if (res.ok) {
         signOut({ callbackUrl: "/" });
       }
-    } catch {}
+    } catch {
+      toast("Не удалось удалить аккаунт", "error");
+    }
     setDeleting(false);
   };
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Star, MessageSquare, Reply, Send, X, Pencil, Trash2 } from "lucide-react";
+import { useToast } from "@/components/ui/Toast";
 
 interface ReviewReply {
   id: string;
@@ -28,6 +29,7 @@ interface ReviewsData {
 }
 
 export default function BusinessReviewsPage() {
+  const { toast } = useToast();
   const [data, setData] = useState<ReviewsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
@@ -61,18 +63,27 @@ export default function BusinessReviewsPage() {
       setReplyingTo(null);
       setEditingReply(null);
       setReplyText("");
+      toast(editingReply ? "Ответ обновлён" : "Ответ отправлен", "success");
       fetchReviews();
+    } else {
+      toast("Не удалось отправить ответ", "error");
     }
     setSending(false);
   };
 
   const handleDeleteReply = async (reviewId: string) => {
+    if (!window.confirm("Удалить ответ на отзыв?")) return;
     const res = await fetch("/api/business/reviews/reply", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ reviewId }),
     });
-    if (res.ok) fetchReviews();
+    if (res.ok) {
+      toast("Ответ удалён", "success");
+      fetchReviews();
+    } else {
+      toast("Не удалось удалить ответ", "error");
+    }
   };
 
   const startEdit = (review: Review) => {

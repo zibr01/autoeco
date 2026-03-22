@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { CalendarCheck, Filter, CheckCircle2, XCircle, Clock, AlertCircle, Phone, Car } from "lucide-react";
+import { useToast } from "@/components/ui/Toast";
 
 interface Booking {
   id: string;
@@ -30,6 +31,7 @@ const filters = [
 ];
 
 export default function BusinessBookingsPage() {
+  const { toast } = useToast();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [total, setTotal] = useState(0);
   const [filter, setFilter] = useState("all");
@@ -50,12 +52,19 @@ export default function BusinessBookingsPage() {
   }, [fetchBookings]);
 
   const updateStatus = async (bookingId: string, status: string) => {
+    if (status === "cancelled" && !window.confirm("Вы уверены, что хотите отменить запись клиента?")) return;
     setUpdating(bookingId);
-    await fetch("/api/business/bookings", {
+    const res = await fetch("/api/business/bookings", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ bookingId, status }),
     });
+    if (!res.ok) {
+      toast("Не удалось обновить статус", "error");
+      setUpdating(null);
+      return;
+    }
+    toast("Статус обновлён", "success");
     await fetchBookings();
     setUpdating(null);
   };

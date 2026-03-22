@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
+import { useToast } from "@/components/ui/Toast";
 import {
   Crown,
   Check,
@@ -202,6 +203,7 @@ const howItWorks = [
 export default function SubscriptionPage() {
   const { status: authStatus } = useSession();
   const router = useRouter();
+  const { toast } = useToast();
   const [currentPlan, setCurrentPlan] = useState("free");
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState(false);
@@ -243,7 +245,7 @@ export default function SubscriptionPage() {
       });
       if (res.ok) setCurrentPlan(planId);
     } catch {
-      // silently fail
+      toast("Не удалось изменить план подписки", "error");
     } finally {
       setUpgrading(false);
     }
@@ -259,8 +261,7 @@ export default function SubscriptionPage() {
       });
       setRequestSuccess(true);
     } catch {
-      // silently fail — still show success
-      setRequestSuccess(true);
+      toast("Не удалось отправить заявку. Попробуйте позже", "error");
     } finally {
       setRequestLoading(false);
     }
