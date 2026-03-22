@@ -3,50 +3,49 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth-helpers";
 
 export async function POST(req: Request) {
-  const user = await getCurrentUser();
+  try {
+    const user = await getCurrentUser();
+    const { message, page } = await req.json();
 
-  const { message } = await req.json();
+    if (!message?.trim()) {
+      return NextResponse.json({ error: "Сообщение обязательно" }, { status: 400 });
+    }
 
-  if (!message?.trim()) {
-    return NextResponse.json({ error: "Сообщение обязательно" }, { status: 400 });
-  }
+    if (!page?.trim()) {
+      return NextResponse.json({ error: "Страница обязательна" }, { status: 400 });
+    }
 
-  // Store feedback as a notification to admin
-  // Find admin user
-  const admin = await prisma.user.findFirst({
-    where: { role: "ADMIN" },
-    select: { id: true },
-  });
-
-  if (admin) {
-    await prisma.notification.create({
+    await prisma.feedback.create({
       data: {
-        userId: admin.id,
-        type: "system",
-        title: "Обратная связь",
-        message: `${user?.name || user?.email || "Аноним"}: ${message.trim()}`,
-        link: null,
+        message: message.trim(),
+        page: page.trim(),
+        userId: user?.id ?? undefined,
+        userName: user?.name || user?.email || "Аноним",
+        userEmail: user?.email || undefined,
       },
     });
-  }
 
-  // Award EcoPoints if user is logged in
-  if (user) {
-    await prisma.$transaction([
-      prisma.ecoPointsTransaction.create({
-        data: {
-          userId: user.id,
-          amount: 20,
-          type: "review",
-          description: "Обратная связь о платформе",
-        },
-      }),
-      prisma.user.update({
-        where: { id: user.id },
-        data: { ecoPointsBalance: { increment: 20 } },
-      }),
-    ]);
-  }
+    // Award EcoPoints if user is logged in
+    if (user) {
+      await prisma.$transaction([
+        prisma.ecoPointsTransaction.create({
+          data: {
+            userId: user.id,
+            amount: 20,
+            type: "review",
+            description: "Обратная связь о платформе",
+          },
+        }),
+        prisma.user.update({
+          where: { id: user.id },
+          data: { ecoPointsBalance: { increment: 20 } },
+        }),
+      ]);
+    }
 
-  return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("Feedback POST error:", error);
+    return NextResponse.json({ error: "Ошибка сервера" }, { status: 500 });
+  }
 }

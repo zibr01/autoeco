@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Header from "./Header";
+import { useToast } from "@/components/ui/Toast";
 import { MessageCircle, X, Send, Loader2, LayoutDashboard, Wrench, Search, ShoppingBag, MessagesSquare } from "lucide-react";
 
 const bottomTabs = [
@@ -18,6 +19,7 @@ const bottomTabs = [
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { status } = useSession();
+  const { toast } = useToast();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackSending, setFeedbackSending] = useState(false);
@@ -30,7 +32,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       await fetch("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: feedbackText }),
+        body: JSON.stringify({ message: feedbackText, page: pathname }),
       });
       setFeedbackSent(true);
       setFeedbackText("");
@@ -39,7 +41,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         setFeedbackOpen(false);
       }, 2000);
     } catch {
-      // silent
+      toast("Не удалось отправить отзыв. Попробуйте позже.");
     }
     setFeedbackSending(false);
   };

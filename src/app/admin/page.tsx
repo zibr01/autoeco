@@ -25,6 +25,17 @@ import {
   Check,
   Trash2,
   Mail,
+  ArrowUp,
+  ArrowDown,
+  ChevronUp,
+  ChevronDown as ChevronDownIcon,
+  ExternalLink,
+  User,
+  ArrowUpDown,
+  Clock,
+  Flame,
+  Calendar,
+  Filter,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -62,11 +73,21 @@ interface SubRequest {
 
 interface FeedbackItem {
   id: string;
-  title: string;
+  userId: string | null;
+  userName: string;
+  userEmail: string | null;
+  page: string;
   message: string;
-  read: boolean;
+  status: string;
+  priority: string;
   createdAt: string;
-  type: string;
+}
+
+interface FeedbackStats {
+  new: number;
+  in_progress: number;
+  fixed: number;
+  not_important: number;
 }
 
 type Tab = "overview" | "users" | "subscriptions" | "feedback";
@@ -521,58 +542,98 @@ function SubscriptionsTab({ toast }: { toast: (msg: string) => void }) {
 function FeedbackTab({ toast }: { toast: (msg: string) => void }) {
   const [items, setItems] = useState<FeedbackItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [total, setTotal] = useState(0);
-  const [unread, setUnread] = useState(0);
-  const [skip, setSkip] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
+  const [stats, setStats] = useState<FeedbackStats>({ new: 0, in_progress: 0, fixed: 0, not_important: 0 });
+  const [page, setPage] = useState(0);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Filters
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterPriority, setFilterPriority] = useState("");
+  const [sortBy, setSortBy] = useState("createdAt");
+  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
 
   const TAKE = 20;
 
+  const statusLabels: Record<string, string> = {
+    new: "Новый",
+    in_progress: "В работе",
+    not_important: "Не важно",
+    fixed: "Исправлено",
+  };
+
+  const statusColors: Record<string, string> = {
+    new: "blue",
+    in_progress: "amber",
+    not_important: "gray",
+    fixed: "emerald",
+  };
+
+  const priorityLabels: Record<string, string> = {
+    urgent: "Срочно",
+    monthly: "В этом месяце",
+    future: "На будущее",
+  };
+
+  const priorityColors: Record<string, string> = {
+    urgent: "red",
+    monthly: "amber",
+    future: "blue",
+  };
+
   const fetchFeedback = useCallback(
-    async (skipVal: number, append: boolean) => {
-      append ? setLoadingMore(true) : setLoading(true);
+    async (pageVal: number) => {
+      setLoading(true);
       try {
-        const params = new URLSearchParams({ take: String(TAKE), skip: String(skipVal) });
+        const params = new URLSearchParams({
+          take: String(TAKE),
+          skip: String(pageVal * TAKE),
+          sortBy,
+          sortOrder,
+        });
+        if (filterStatus) params.set("status", filterStatus);
+        if (filterPriority) params.set("priority", filterPriority);
         const res = await fetch(`/api/admin/feedback?${params}`);
         const data = await res.json();
         const list: FeedbackItem[] = data.items ?? [];
-        if (append) {
-          setItems((prev) => [...prev, ...list]);
-        } else {
-          setItems(list);
-        }
+        setItems(list);
         setTotal(data.total ?? 0);
-        setUnread(data.unread ?? 0);
-        setHasMore(list.length === TAKE);
-        setSkip(skipVal + list.length);
+        if (data.stats) setStats(data.stats);
+        setPage(pageVal);
       } catch {
         toast("Ошибка загрузки обратной связи");
       } finally {
         setLoading(false);
-        setLoadingMore(false);
       }
     },
-    [toast],
+    [toast, filterStatus, filterPriority, sortBy, sortOrder],
   );
 
   useEffect(() => {
-    fetchFeedback(0, false);
+    fetchFeedback(0);
   }, [fetchFeedback]);
 
-  const markAsRead = async (id: string) => {
+  const patchFeedback = async (id: string, body: { status?: string; priority?: string }) => {
     setActionLoading(id);
     try {
       const res = await fetch("/api/admin/feedback", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ id, ...body }),
       });
       if (!res.ok) throw new Error();
-      setItems((prev) => prev.map((item) => (item.id === id ? { ...item, read: true } : item)));
-      setUnread((prev) => Math.max(0, prev - 1));
-      toast("Отмечено как прочитанное");
+      const updated = await res.json();
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? { ...item, status: updated.status ?? item.status, priority: updated.priority ?? item.priority }
+            : item,
+        ),
+      );
+      // Refresh stats
+      fetchFeedback(page);
+      toast("Обновлено");
     } catch {
       toast("Ошибка обновления");
     } finally {
@@ -586,11 +647,8 @@ function FeedbackTab({ toast }: { toast: (msg: string) => void }) {
     try {
       const res = await fetch(`/api/admin/feedback?id=${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
-      const wasUnread = items.find((item) => item.id === id && !item.read);
-      setItems((prev) => prev.filter((item) => item.id !== id));
-      setTotal((prev) => prev - 1);
-      if (wasUnread) setUnread((prev) => Math.max(0, prev - 1));
       toast("Сообщение удалено");
+      fetchFeedback(page);
     } catch {
       toast("Ошибка удаления");
     } finally {
@@ -598,31 +656,101 @@ function FeedbackTab({ toast }: { toast: (msg: string) => void }) {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-16">
-        <Loader2 className="w-6 h-6 text-brand animate-spin" />
-      </div>
-    );
-  }
+  const totalPages = Math.ceil(total / TAKE);
+
+  const getColorClasses = (color: string, active: boolean) => {
+    const map: Record<string, { bg: string; text: string; activeBg: string }> = {
+      blue: { bg: "bg-blue-500/10", text: "text-blue-400", activeBg: "bg-blue-500/30" },
+      amber: { bg: "bg-amber-500/10", text: "text-amber-400", activeBg: "bg-amber-500/30" },
+      gray: { bg: "bg-gray-500/10", text: "text-gray-400", activeBg: "bg-gray-500/30" },
+      emerald: { bg: "bg-emerald-500/10", text: "text-emerald-400", activeBg: "bg-emerald-500/30" },
+      red: { bg: "bg-red-500/10", text: "text-red-400", activeBg: "bg-red-500/30" },
+    };
+    const c = map[color] ?? map.gray;
+    return `${active ? c.activeBg : c.bg} ${c.text}`;
+  };
 
   return (
     <div>
-      {/* Summary */}
-      <div className="flex items-center gap-4 mb-4">
-        <div className="glass rounded-xl px-4 py-2 flex items-center gap-2">
-          <Mail className="w-4 h-4 text-text-muted" />
-          <span className="text-sm text-text-muted">Всего:</span>
-          <span className="text-sm font-semibold text-text">{total}</span>
-        </div>
-        <div className="glass rounded-xl px-4 py-2 flex items-center gap-2">
-          <MessageSquare className="w-4 h-4 text-brand-light" />
-          <span className="text-sm text-text-muted">Непрочитанных:</span>
-          <span className="text-sm font-semibold text-brand-light">{unread}</span>
-        </div>
+      {/* Stats header */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {(["new", "in_progress", "fixed", "not_important"] as const).map((key) => {
+          const color = statusColors[key];
+          return (
+            <div
+              key={key}
+              className={`rounded-xl px-3 py-1.5 flex items-center gap-2 ${getColorClasses(color, false)} border border-transparent`}
+            >
+              <span className="text-xs font-medium">{statusLabels[key]}</span>
+              <span className="text-sm font-bold">{stats[key]}</span>
+            </div>
+          );
+        })}
       </div>
 
-      {items.length === 0 ? (
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <Filter className="w-4 h-4 text-text-muted flex-shrink-0" />
+
+        {/* Status filter */}
+        <div className="relative">
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="input-field text-xs !py-1.5 !pr-7 appearance-none cursor-pointer"
+          >
+            <option value="">Все статусы</option>
+            {Object.entries(statusLabels).map(([val, label]) => (
+              <option key={val} value={val}>{label}</option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-text-muted pointer-events-none" />
+        </div>
+
+        {/* Priority filter */}
+        <div className="relative">
+          <select
+            value={filterPriority}
+            onChange={(e) => setFilterPriority(e.target.value)}
+            className="input-field text-xs !py-1.5 !pr-7 appearance-none cursor-pointer"
+          >
+            <option value="">Все приоритеты</option>
+            {Object.entries(priorityLabels).map(([val, label]) => (
+              <option key={val} value={val}>{label}</option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-text-muted pointer-events-none" />
+        </div>
+
+        {/* Sort by */}
+        <div className="relative">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="input-field text-xs !py-1.5 !pr-7 appearance-none cursor-pointer"
+          >
+            <option value="createdAt">По дате</option>
+            <option value="status">По статусу</option>
+            <option value="priority">По приоритету</option>
+          </select>
+          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-text-muted pointer-events-none" />
+        </div>
+
+        {/* Sort direction */}
+        <button
+          onClick={() => setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"))}
+          className="p-1.5 rounded-lg glass hover:bg-white/10 transition-all"
+          title={sortOrder === "desc" ? "По убыванию" : "По возрастанию"}
+        >
+          <ArrowUpDown className="w-4 h-4 text-text-muted" />
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="w-6 h-6 text-brand animate-spin" />
+        </div>
+      ) : items.length === 0 ? (
         <div className="glass rounded-xl p-6 text-center">
           <MessageSquare className="w-6 h-6 text-text-muted mx-auto mb-2" />
           <p className="text-text-muted text-sm">Нет сообщений обратной связи</p>
@@ -631,60 +759,112 @@ function FeedbackTab({ toast }: { toast: (msg: string) => void }) {
         <div className="space-y-2">
           {items.map((item) => {
             const busy = actionLoading === item.id;
+            const isExpanded = expandedId === item.id;
+            const isLong = item.message.length > 200;
+
             return (
               <div key={item.id} className="card-surface">
-                <div className="flex items-start gap-3">
-                  {/* Unread indicator */}
-                  <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-brand/20 flex-shrink-0 relative">
-                    <MessageSquare className="w-5 h-5 text-brand-light" />
-                    {!item.read && (
-                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-[var(--bg)]" />
-                    )}
+                {/* Header: user info + page badge + date + delete */}
+                <div className="flex items-start gap-3 mb-2">
+                  <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-brand/20 flex-shrink-0">
+                    <User className="w-4 h-4 text-brand-light" />
                   </div>
-
-                  {/* Content */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-text text-sm">{item.title}</span>
-                      {!item.read && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-blue-500/20 text-blue-400 font-medium">
-                          Новое
-                        </span>
-                      )}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-text text-sm">{item.userName || "Аноним"}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-400 font-medium flex items-center gap-1">
+                        <ExternalLink className="w-2.5 h-2.5" />
+                        {item.page}
+                      </span>
                     </div>
-                    <p className="text-sm text-text-muted mt-1 break-words">{item.message}</p>
-                    <div className="text-xs text-text-muted mt-1.5">
-                      {new Date(item.createdAt).toLocaleString("ru-RU", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    {busy && <Loader2 className="w-4 h-4 text-brand animate-spin" />}
-                    {!item.read && (
-                      <button
-                        onClick={() => markAsRead(item.id)}
-                        disabled={busy}
-                        title="Прочитано"
-                        className="p-2 rounded-lg text-emerald-400 hover:bg-emerald-500/20 transition-all disabled:opacity-50"
-                      >
-                        <Check className="w-4 h-4" />
-                      </button>
+                    {item.userEmail && (
+                      <div className="text-xs text-text-muted mt-0.5 flex items-center gap-1">
+                        <Mail className="w-3 h-3" />
+                        {item.userEmail}
+                      </div>
                     )}
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-xs text-text-muted whitespace-nowrap">
+                      {new Date(item.createdAt).toLocaleDateString("ru-RU", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </span>
                     <button
                       onClick={() => deleteFeedback(item.id)}
                       disabled={busy}
                       title="Удалить"
-                      className="p-2 rounded-lg text-red-400 hover:bg-red-500/20 transition-all disabled:opacity-50"
+                      className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/20 transition-all disabled:opacity-50"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
+                  </div>
+                </div>
+
+                {/* Message text */}
+                <div className="mb-3">
+                  <p className="text-sm text-text-muted break-words">
+                    {isLong && !isExpanded ? item.message.slice(0, 200) + "..." : item.message}
+                  </p>
+                  {isLong && (
+                    <button
+                      onClick={() => setExpandedId(isExpanded ? null : item.id)}
+                      className="text-xs text-brand-light hover:underline mt-1"
+                    >
+                      {isExpanded ? "Свернуть" : "Показать полностью"}
+                    </button>
+                  )}
+                </div>
+
+                {/* Status + Priority buttons */}
+                <div className="flex flex-wrap items-center gap-3">
+                  {busy && <Loader2 className="w-4 h-4 text-brand animate-spin" />}
+
+                  {/* Status buttons */}
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-text-muted mr-1">Статус:</span>
+                    {(["new", "in_progress", "not_important", "fixed"] as const).map((s) => (
+                      <button
+                        key={s}
+                        disabled={busy}
+                        onClick={() => item.status !== s && patchFeedback(item.id, { status: s })}
+                        className={`text-[10px] px-2 py-1 rounded-lg font-medium transition-all disabled:opacity-50 ${getColorClasses(
+                          statusColors[s],
+                          item.status === s,
+                        )} ${item.status === s ? "ring-1 ring-current" : "opacity-60 hover:opacity-100"}`}
+                      >
+                        {statusLabels[s]}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="w-px h-4 bg-white/10" />
+
+                  {/* Priority buttons */}
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-text-muted mr-1">Приоритет:</span>
+                    {(["urgent", "monthly", "future"] as const).map((p) => {
+                      const icon =
+                        p === "urgent" ? <Flame className="w-3 h-3" /> :
+                        p === "monthly" ? <Clock className="w-3 h-3" /> :
+                        <Calendar className="w-3 h-3" />;
+                      return (
+                        <button
+                          key={p}
+                          disabled={busy}
+                          onClick={() => item.priority !== p && patchFeedback(item.id, { priority: p })}
+                          className={`text-[10px] px-2 py-1 rounded-lg font-medium transition-all disabled:opacity-50 flex items-center gap-1 ${getColorClasses(
+                            priorityColors[p],
+                            item.priority === p,
+                          )} ${item.priority === p ? "ring-1 ring-current" : "opacity-60 hover:opacity-100"}`}
+                        >
+                          {icon}
+                          {priorityLabels[p]}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -693,22 +873,25 @@ function FeedbackTab({ toast }: { toast: (msg: string) => void }) {
         </div>
       )}
 
-      {/* Load more */}
-      {hasMore && !loading && items.length > 0 && (
-        <div className="flex justify-center mt-4">
+      {/* Pagination */}
+      {totalPages > 1 && !loading && (
+        <div className="flex items-center justify-center gap-2 mt-4">
           <button
-            onClick={() => fetchFeedback(skip, true)}
-            disabled={loadingMore}
-            className="btn-primary text-sm !py-2 flex items-center gap-2 disabled:opacity-50"
+            onClick={() => fetchFeedback(page - 1)}
+            disabled={page === 0}
+            className="p-2 rounded-lg glass text-text-muted hover:text-text transition-all disabled:opacity-30"
           >
-            {loadingMore ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Загрузка...
-              </>
-            ) : (
-              "Загрузить ещё"
-            )}
+            <ChevronUp className="w-4 h-4 -rotate-90" />
+          </button>
+          <span className="text-sm text-text-muted">
+            {page + 1} / {totalPages}
+          </span>
+          <button
+            onClick={() => fetchFeedback(page + 1)}
+            disabled={page + 1 >= totalPages}
+            className="p-2 rounded-lg glass text-text-muted hover:text-text transition-all disabled:opacity-30"
+          >
+            <ChevronDownIcon className="w-4 h-4 -rotate-90" />
           </button>
         </div>
       )}
