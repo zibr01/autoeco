@@ -1,0 +1,154 @@
+"use client";
+
+import { useState } from "react";
+import { signIn, signOut, getSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Shield, Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from "lucide-react";
+
+export default function AdminLoginPage() {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      const result = await signIn("credentials", {
+        email: email.trim().toLowerCase(),
+        password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setError("Неверный email или пароль");
+        setLoading(false);
+      } else {
+        router.refresh();
+        const session = await getSession();
+        const userRole = session?.user?.role || "";
+
+        if (userRole !== "ADMIN" && userRole !== "MODERATOR") {
+          await signOut({ redirect: false });
+          setError("Этот аккаунт не имеет прав администратора");
+          setLoading(false);
+          return;
+        }
+
+        router.push("/admin");
+      }
+    } catch {
+      setError("Ошибка сети. Попробуйте позже.");
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-bg flex items-center justify-center px-4 relative overflow-hidden">
+      {/* Background */}
+      <div className="absolute inset-0 dot-grid opacity-40" />
+      <div className="absolute top-1/4 -left-32 w-64 h-64 bg-brand/10 rounded-full blur-3xl" />
+      <div className="absolute bottom-1/4 -right-32 w-64 h-64 bg-accent/10 rounded-full blur-3xl" />
+
+      <div className="w-full max-w-md relative z-10">
+        {/* Logo */}
+        <Link href="/panel" className="flex items-center justify-center gap-2.5 mb-8 group">
+          <div className="w-10 h-10 rounded-xl bg-prussian flex items-center justify-center group-hover:shadow-brand transition-shadow">
+            <Shield className="w-5 h-5 text-white" />
+          </div>
+          <span className="font-extrabold text-2xl tracking-tight text-prussian">
+            Auto<span className="text-gradient-brand">Eco</span>
+            <span className="text-sm font-normal text-text-muted ml-2">Admin</span>
+          </span>
+        </Link>
+
+        {/* Card */}
+        <div className="card-surface">
+          <div className="text-center mb-6">
+            <h1 className="text-xl font-bold text-text">Вход в AutoEco Admin</h1>
+            <p className="text-text-muted text-sm mt-1">
+              Панель администратора
+            </p>
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/5 border border-red-500/15 mb-5">
+              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+              <span className="text-sm text-red-400">{error}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">
+                Email
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-dim" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="input-field text-sm !pl-10"
+                  placeholder="admin@autoeco.ru"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">
+                Пароль
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-dim" />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="input-field text-sm !pl-10 !pr-10"
+                  placeholder="••••••••"
+                  required
+                  minLength={6}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-dim hover:text-text-muted transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-primary w-full justify-center text-sm !py-3 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Входим...
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  Войти
+                  <ArrowRight className="w-4 h-4" />
+                </span>
+              )}
+            </button>
+          </form>
+
+          {/* No registration link for admin */}
+        </div>
+      </div>
+    </div>
+  );
+}
