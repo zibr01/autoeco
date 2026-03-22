@@ -1,13 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { signIn, getSession } from "next-auth/react";
+import { signIn, signOut, getSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Car, Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle } from "lucide-react";
+import { getPlatform, platformRoles, platformHome, platformNames } from "@/lib/platform";
 
 export default function LoginPage() {
   const router = useRouter();
+  const platform = getPlatform();
+  const allowedRoles = platformRoles[platform];
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -32,8 +35,14 @@ export default function LoginPage() {
       } else {
         router.refresh();
         const session = await getSession();
-        const dest = session?.user?.role === "BUSINESS" ? "/business" : "/dashboard";
-        router.push(dest);
+        const userRole = session?.user?.role || "";
+        if (!allowedRoles.includes(userRole)) {
+          await signOut({ redirect: false });
+          setError("Этот аккаунт не имеет доступа к данной платформе");
+          setLoading(false);
+          return;
+        }
+        router.push(platformHome[platform]);
       }
     } catch {
       setError("Ошибка сети. Попробуйте позже.");
@@ -56,15 +65,20 @@ export default function LoginPage() {
           </div>
           <span className="font-extrabold text-2xl tracking-tight text-prussian">
             Auto<span className="text-gradient-brand">Eco</span>
+            {platform !== "client" && (
+              <span className="text-sm font-normal text-text-muted ml-2">{platform === "business" ? "Business" : "Admin"}</span>
+            )}
           </span>
         </Link>
 
         {/* Card */}
         <div className="card-surface">
           <div className="text-center mb-6">
-            <h1 className="text-xl font-bold text-text">Вход в аккаунт</h1>
+            <h1 className="text-xl font-bold text-text">Вход в {platformNames[platform]}</h1>
             <p className="text-text-muted text-sm mt-1">
-              Войдите, чтобы управлять автомобилями
+              {platform === "client" && "Войдите, чтобы управлять автомобилями"}
+              {platform === "business" && "Войдите в панель управления бизнесом"}
+              {platform === "admin" && "Панель администратора"}
             </p>
           </div>
 
@@ -137,14 +151,26 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-sm text-text-muted">
-              Нет аккаунта?{" "}
-              <Link href="/auth/register" className="text-brand-light hover:text-brand font-medium transition-colors">
-                Зарегистрироваться
-              </Link>
-            </p>
-          </div>
+          {platform === "client" && (
+            <div className="mt-6 text-center">
+              <p className="text-sm text-text-muted">
+                Нет аккаунта?{" "}
+                <Link href="/auth/register" className="text-brand-light hover:text-brand font-medium transition-colors">
+                  Зарегистрироваться
+                </Link>
+              </p>
+            </div>
+          )}
+          {platform === "business" && (
+            <div className="mt-6 text-center">
+              <p className="text-sm text-text-muted">
+                Нет аккаунта?{" "}
+                <Link href="/auth/register-business" className="text-brand-light hover:text-brand font-medium transition-colors">
+                  Зарегистрировать бизнес
+                </Link>
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Demo credentials — only in development */}

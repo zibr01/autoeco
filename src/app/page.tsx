@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Reveal from "@/components/ui/Reveal";
+import { getPlatform } from "@/lib/platform";
 import {
   Car,
   Bell,
@@ -21,7 +22,137 @@ import {
   Scale,
   Ticket,
   MessageSquare,
+  BarChart3,
+  UserCheck,
+  CalendarCheck,
 } from "lucide-react";
+
+/* ── Business Landing ─────────────────────────── */
+
+const businessFeatures = [
+  { icon: CalendarCheck, title: "Онлайн-записи", desc: "Клиенты записываются сами — без звонков и ожидания" },
+  { icon: UserCheck, title: "Управление клиентами", desc: "База клиентов, история визитов и предпочтения" },
+  { icon: BarChart3, title: "Аналитика", desc: "Выручка, загрузка, конверсия — все метрики в одном месте" },
+  { icon: Star, title: "Отзывы и репутация", desc: "Верифицированные отзывы и управление рейтингом" },
+];
+
+function BusinessLanding() {
+  return (
+    <div className="min-h-screen bg-bg flex flex-col">
+      {/* Header */}
+      <header className="fixed top-0 left-0 right-0 z-50 glass-dark">
+        <div className="max-w-7xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-prussian flex items-center justify-center">
+              <Car className="w-4 h-4 text-white" />
+            </div>
+            <span className="font-extrabold text-lg tracking-tight text-prussian">
+              Auto<span className="text-gradient-brand">Eco</span>
+            </span>
+            <span className="text-xs font-medium text-text-dim ml-1">Business</span>
+          </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/auth/login" className="text-sm text-text-muted hover:text-prussian transition-colors">
+              Войти
+            </Link>
+            <Link href="/auth/register-business" className="text-sm font-semibold px-5 py-2 rounded-lg bg-brand text-white transition-all hover:shadow-brand hover:-translate-y-0.5">
+              Регистрация
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {/* Hero */}
+      <section className="flex-1 flex items-center justify-center pt-16">
+        <div className="max-w-4xl mx-auto px-5 py-20 text-center">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-prussian/[0.08] bg-white/60 mb-8 animate-fade-up">
+            <span className="text-sm text-text-muted">Платформа для автосервисов</span>
+          </div>
+
+          <h1 className="animate-fade-up mb-6" style={{ fontSize: "clamp(2rem, 6vw, 4rem)", fontWeight: 900, letterSpacing: "-0.04em", lineHeight: 1.1 }}>
+            <span className="text-prussian">AutoEco </span>
+            <span className="text-gradient-brand">Business</span>
+          </h1>
+          <p className="text-lg sm:text-xl text-text-muted max-w-xl mx-auto mb-12 leading-relaxed animate-fade-up">
+            Управляйте автосервисом эффективно
+          </p>
+
+          {/* Feature cards */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-12 animate-fade-up">
+            {businessFeatures.map((f) => {
+              const Icon = f.icon;
+              return (
+                <div key={f.title} className="card-surface text-left">
+                  <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center mb-3">
+                    <Icon className="w-5 h-5 text-brand" />
+                  </div>
+                  <h3 className="text-sm font-bold text-prussian mb-1">{f.title}</h3>
+                  <p className="text-text-muted text-xs leading-relaxed">{f.desc}</p>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Stats */}
+          <div className="flex items-center justify-center gap-8 sm:gap-12 mb-12 animate-fade-up">
+            {[
+              { v: "8", l: "сервисов" },
+              { v: "50+", l: "записей" },
+              { v: "4.7", l: "средний рейтинг" },
+            ].map((s) => (
+              <div key={s.l} className="text-center">
+                <div className="text-2xl font-extrabold text-gradient-brand tracking-tight">{s.v}</div>
+                <div className="text-text-dim text-xs">{s.l}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* CTA */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-up">
+            <Link href="/auth/login" className="btn-primary px-8 py-3">
+              Войти <ArrowRight className="w-4 h-4" />
+            </Link>
+            <Link href="/auth/register-business" className="btn-ghost px-8 py-3">
+              Зарегистрировать сервис
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-prussian/[0.06] py-8">
+        <div className="max-w-7xl mx-auto px-5 flex items-center justify-between">
+          <span className="font-bold text-sm text-prussian">AutoEco Business</span>
+          <span className="text-text-dim text-xs">&copy; 2026 AutoEco</span>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+/* ── Admin Landing ────────────────────────────── */
+
+function AdminLanding() {
+  return (
+    <div className="min-h-screen bg-bg flex items-center justify-center">
+      <div className="card-surface max-w-md w-full mx-5 text-center animate-fade-up">
+        <div className="w-16 h-16 rounded-2xl bg-prussian flex items-center justify-center mx-auto mb-6">
+          <Shield className="w-8 h-8 text-white" />
+        </div>
+        <h1 className="text-2xl font-extrabold tracking-tight mb-2">
+          <span className="text-prussian">AutoEco </span>
+          <span className="text-gradient-brand">Admin</span>
+        </h1>
+        <p className="text-text-muted text-sm mb-8">
+          Панель управления экосистемой
+        </p>
+        <Link href="/auth/login" className="btn-primary px-8 py-3 inline-flex">
+          Войти <ArrowRight className="w-4 h-4" />
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 /* ── Data ──────────────────────────────────────── */
 
@@ -80,6 +211,10 @@ const steps = [
 /* ── Page ──────────────────────────────────────── */
 
 export default function LandingPage() {
+  const platform = getPlatform();
+  if (platform === "business") return <BusinessLanding />;
+  if (platform === "admin") return <AdminLanding />;
+
   return (
     <div className="min-h-screen bg-bg overflow-x-hidden">
 

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { Bell, Car, ChevronDown, Menu, User, X, LogOut, Settings, LayoutDashboard, Sun, Moon, Building2, AlertTriangle, Clock, CalendarCheck, Star, MessageSquare, Ticket, CheckCircle2, Award, Crown, Shield } from "lucide-react";
 import { useTheme } from "@/components/providers/ThemeProvider";
+import { getPlatform, platformNames, platformHome } from "@/lib/platform";
 
 interface Notification {
   id: string;
@@ -18,14 +19,29 @@ interface Notification {
   urgency?: string | null;
 }
 
-const navItems = [
-  { href: "/dashboard", label: "Дашборд" },
-  { href: "/services", label: "Сервисы" },
-  { href: "/parts", label: "Запчасти" },
-  { href: "/diagnostics", label: "Диагностика" },
-  { href: "/orders", label: "Заказы" },
-  { href: "/messages", label: "Сообщения" },
-];
+const platform = getPlatform();
+
+const navItemsByPlatform = {
+  client: [
+    { href: "/dashboard", label: "Гараж" },
+    { href: "/services", label: "Сервисы" },
+    { href: "/diagnostics", label: "Диагностика" },
+    { href: "/parts", label: "Запчасти" },
+  ],
+  business: [
+    { href: "/business/bookings", label: "Записи" },
+    { href: "/business/clients", label: "Клиенты" },
+    { href: "/business/analytics", label: "Аналитика" },
+    { href: "/business/reviews", label: "Отзывы" },
+  ],
+  admin: [
+    { href: "/moderator", label: "Модерация" },
+    { href: "/admin", label: "Пользователи" },
+    { href: "/admin?tab=stats", label: "Статистика" },
+  ],
+};
+
+const navItems = navItemsByPlatform[platform];
 
 function getNotifIcon(type: string, urgency?: string | null) {
   switch (type) {
@@ -106,12 +122,17 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-5 sm:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href={isAuth ? "/dashboard" : "/"} className="flex items-center gap-2.5 group">
+          <Link href={isAuth ? platformHome[platform] : "/"} className="flex items-center gap-2.5 group">
             <div className="w-8 h-8 rounded-lg bg-prussian flex items-center justify-center group-hover:shadow-brand transition-shadow">
               <Car className="w-4 h-4 text-white" />
             </div>
             <span className="font-extrabold text-lg tracking-tight text-prussian">
               Auto<span className="text-gradient-brand">Eco</span>
+              {platform !== "client" && (
+                <span className="text-xs font-medium text-[var(--text-muted)] ml-1">
+                  {platform === "business" ? "Business" : "Admin"}
+                </span>
+              )}
             </span>
           </Link>
 
@@ -262,68 +283,99 @@ export default function Header() {
                         <p className="text-xs text-[var(--text-muted)]">{session?.user?.email}</p>
                       </div>
 
-                      <Link
-                        href="/dashboard"
-                        onClick={() => setUserMenuOpen(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover-bg)] transition-all"
-                      >
-                        <LayoutDashboard className="w-4 h-4" />
-                        Дашборд
-                      </Link>
-                      {session?.user?.role === "BUSINESS" && (
-                        <Link
-                          href="/business"
-                          onClick={() => setUserMenuOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-brand-light hover:text-brand hover:bg-brand/[0.04] transition-all"
-                        >
-                          <Building2 className="w-4 h-4" />
-                          B2B Кабинет
-                        </Link>
+                      {/* Platform-based menu items */}
+                      {platform === "client" && (
+                        <>
+                          <Link
+                            href="/dashboard"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover-bg)] transition-all"
+                          >
+                            <LayoutDashboard className="w-4 h-4" />
+                            Дашборд
+                          </Link>
+                          <Link
+                            href="/profile"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover-bg)] transition-all"
+                          >
+                            <Settings className="w-4 h-4" />
+                            Профиль
+                          </Link>
+                          <Link
+                            href="/loyalty"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-accent hover:text-accent-dark hover:bg-accent/[0.04] transition-all"
+                          >
+                            <Award className="w-4 h-4" />
+                            EcoPoints
+                          </Link>
+                          <Link
+                            href="/subscription"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover-bg)] transition-all"
+                          >
+                            <Crown className="w-4 h-4" />
+                            Подписка
+                          </Link>
+                        </>
                       )}
-                      {(session?.user?.role === "MODERATOR" || session?.user?.role === "ADMIN") && (
-                        <Link
-                          href="/moderator"
-                          onClick={() => setUserMenuOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/[0.04] transition-all"
-                        >
-                          <CheckCircle2 className="w-4 h-4" />
-                          Модерация
-                        </Link>
+                      {platform === "business" && (
+                        <>
+                          <Link
+                            href="/business"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-brand-light hover:text-brand hover:bg-brand/[0.04] transition-all"
+                          >
+                            <Building2 className="w-4 h-4" />
+                            B2B Кабинет
+                          </Link>
+                          <Link
+                            href="/profile"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover-bg)] transition-all"
+                          >
+                            <Settings className="w-4 h-4" />
+                            Профиль
+                          </Link>
+                          <Link
+                            href="/business/settings"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover-bg)] transition-all"
+                          >
+                            <Settings className="w-4 h-4" />
+                            Настройки
+                          </Link>
+                        </>
                       )}
-                      {session?.user?.role === "ADMIN" && (
-                        <Link
-                          href="/admin"
-                          onClick={() => setUserMenuOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/[0.04] transition-all"
-                        >
-                          <Shield className="w-4 h-4" />
-                          Админ-панель
-                        </Link>
+                      {platform === "admin" && (
+                        <>
+                          <Link
+                            href="/admin"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/[0.04] transition-all"
+                          >
+                            <Shield className="w-4 h-4" />
+                            Админ-панель
+                          </Link>
+                          <Link
+                            href="/moderator"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/[0.04] transition-all"
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                            Модерация
+                          </Link>
+                          <Link
+                            href="/profile"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover-bg)] transition-all"
+                          >
+                            <Settings className="w-4 h-4" />
+                            Профиль
+                          </Link>
+                        </>
                       )}
-                      <Link
-                        href="/loyalty"
-                        onClick={() => setUserMenuOpen(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-accent hover:text-accent-dark hover:bg-accent/[0.04] transition-all"
-                      >
-                        <Award className="w-4 h-4" />
-                        EcoPoints
-                      </Link>
-                      <Link
-                        href="/subscription"
-                        onClick={() => setUserMenuOpen(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover-bg)] transition-all"
-                      >
-                        <Crown className="w-4 h-4" />
-                        Подписка
-                      </Link>
-                      <Link
-                        href="/profile"
-                        onClick={() => setUserMenuOpen(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--hover-bg)] transition-all"
-                      >
-                        <Settings className="w-4 h-4" />
-                        Настройки
-                      </Link>
 
                       <div className="border-t border-[var(--divider)] mt-1 pt-1">
                         <button

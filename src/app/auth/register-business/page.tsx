@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Building2, Mail, Lock, User, Phone, MapPin, Eye, EyeOff, ArrowRight, AlertCircle, Wrench } from "lucide-react";
+import { getPlatform } from "@/lib/platform";
 
 const serviceTypes = [
   { value: "sto", label: "Автосервис" },
@@ -17,6 +18,14 @@ const serviceTypes = [
 
 export default function RegisterBusinessPage() {
   const router = useRouter();
+  const platform = getPlatform();
+
+  useEffect(() => {
+    if (platform !== "business") {
+      router.replace("/");
+    }
+  }, [platform, router]);
+
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
     name: "",
@@ -101,6 +110,8 @@ export default function RegisterBusinessPage() {
       setError("Ошибка сети. Попробуйте позже.");
     }
   };
+
+  if (platform !== "business") return null;
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-8 relative overflow-hidden">

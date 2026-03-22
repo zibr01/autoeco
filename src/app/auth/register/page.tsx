@@ -5,11 +5,19 @@ import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Car, Mail, Lock, User, Phone, MapPin, Eye, EyeOff, ArrowRight, AlertCircle, Check, Gift } from "lucide-react";
+import { getPlatform, platformHome } from "@/lib/platform";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const platform = getPlatform();
   const searchParams = useSearchParams();
   const refCode = searchParams.get("ref");
+
+  useEffect(() => {
+    if (platform !== "client") {
+      router.replace("/");
+    }
+  }, [platform, router]);
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -93,7 +101,7 @@ export default function RegisterPage() {
       if (result?.error) {
         setError("Аккаунт создан, но не удалось войти. Попробуйте вручную.");
       } else {
-        router.push("/dashboard");
+        router.push(platformHome[platform]);
         router.refresh();
       }
     } catch {
@@ -103,6 +111,8 @@ export default function RegisterPage() {
   };
 
   const passwordStrength = form.password.length >= 8 ? "strong" : form.password.length >= 6 ? "medium" : "weak";
+
+  if (platform !== "client") return null;
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-8 relative overflow-hidden">

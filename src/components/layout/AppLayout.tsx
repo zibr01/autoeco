@@ -6,15 +6,35 @@ import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Header from "./Header";
 import { useToast } from "@/components/ui/Toast";
-import { MessageCircle, X, Send, Loader2, LayoutDashboard, Wrench, Search, ShoppingBag, MessagesSquare } from "lucide-react";
+import { MessageCircle, X, Send, Loader2, LayoutDashboard, Wrench, Search, ShoppingBag, MessagesSquare, CalendarCheck, Users, Star, Shield } from "lucide-react";
+import { getPlatform } from "@/lib/platform";
 
-const bottomTabs = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "Главная" },
-  { href: "/services", icon: Wrench, label: "Сервисы" },
-  { href: "/diagnostics", icon: Search, label: "AI" },
-  { href: "/parts", icon: ShoppingBag, label: "Запчасти" },
-  { href: "/messages", icon: MessagesSquare, label: "Чат" },
-];
+const platform = getPlatform();
+
+const bottomTabsByPlatform = {
+  client: [
+    { href: "/dashboard", icon: LayoutDashboard, label: "Главная" },
+    { href: "/services", icon: Wrench, label: "Сервисы" },
+    { href: "/diagnostics", icon: Search, label: "AI" },
+    { href: "/parts", icon: ShoppingBag, label: "Запчасти" },
+    { href: "/messages", icon: MessagesSquare, label: "Чат" },
+  ],
+  business: [
+    { href: "/business", icon: LayoutDashboard, label: "Главная" },
+    { href: "/business/bookings", icon: CalendarCheck, label: "Записи" },
+    { href: "/business/clients", icon: Users, label: "Клиенты" },
+    { href: "/business/reviews", icon: Star, label: "Отзывы" },
+    { href: "/messages", icon: MessagesSquare, label: "Чат" },
+  ],
+  admin: [
+    { href: "/admin", icon: LayoutDashboard, label: "Обзор" },
+    { href: "/moderator", icon: Shield, label: "Модерация" },
+    { href: "/admin?tab=users", icon: Users, label: "Пользователи" },
+    { href: "/moderator?tab=reviews", icon: Star, label: "Отзывы" },
+  ],
+};
+
+const bottomTabs = bottomTabsByPlatform[platform];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -58,7 +78,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden glass-dark border-t border-[var(--border)]" aria-label="Мобильная навигация">
           <div className="flex items-center justify-around h-16 px-2 max-w-lg mx-auto">
             {bottomTabs.map((tab) => {
-              const isActive = pathname === tab.href || (tab.href !== "/dashboard" && pathname.startsWith(tab.href));
+              const tabPath = tab.href.split("?")[0];
+              const isActive = pathname === tabPath || (tabPath !== "/dashboard" && tabPath !== "/business" && tabPath !== "/admin" && pathname.startsWith(tabPath));
               const Icon = tab.icon;
               return (
                 <Link
