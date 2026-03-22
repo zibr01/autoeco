@@ -45,7 +45,7 @@ export default function ServiceMap({ services, selectedId }: ServiceMapProps) {
     }
 
     const script = document.createElement("script");
-    script.src = "https://api-maps.yandex.ru/2.1/?apikey=&lang=ru_RU";
+    script.src = `https://api-maps.yandex.ru/2.1/?apikey=${process.env.NEXT_PUBLIC_YMAPS_KEY || ""}&lang=ru_RU`;
     script.async = true;
     script.onload = () => {
       if (window.ymaps) {
