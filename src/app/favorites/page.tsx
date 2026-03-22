@@ -69,6 +69,7 @@ export default function FavoritesPage() {
     try {
       await fetch(`/api/favorites/${serviceCenterId}`, { method: "DELETE" });
       setFavorites((prev) => prev.filter((f) => f.serviceCenterId !== serviceCenterId));
+      toast("Удалено из избранного", "success");
     } catch {
       toast("Не удалось удалить из избранного", "error");
     } finally {
@@ -104,8 +105,9 @@ export default function FavoritesPage() {
           <p className="text-text-muted text-sm mb-6">
             Добавляйте сервисы в избранное, чтобы быстро к ним возвращаться
           </p>
-          <Link href="/services" className="btn-primary text-sm py-2 px-6">
-            Перейти в каталог
+          <Link href="/services" className="btn-primary text-sm py-2 px-6 inline-flex items-center gap-2">
+            <MapPin className="w-4 h-4" />
+            Найти сервис
           </Link>
         </div>
       ) : (

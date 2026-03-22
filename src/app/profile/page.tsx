@@ -625,6 +625,7 @@ function SettingsTab() {
     localStorage.setItem("autoeco_settings", JSON.stringify(settings));
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+    toast("Настройки сохранены", "success");
   };
 
   // Load settings from localStorage on mount

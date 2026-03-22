@@ -117,7 +117,7 @@ export default function Header() {
 
           {/* Desktop Nav */}
           {isAuth && (
-            <nav className="hidden md:flex items-center gap-1">
+            <nav className="hidden md:flex items-center gap-1" role="navigation" aria-label="Основная навигация">
               {navItems.map((item) => {
                 const isActive = pathname.startsWith(item.href);
                 return (
@@ -162,6 +162,7 @@ export default function Header() {
                       setUserMenuOpen(false);
                     }}
                     className="relative p-2 rounded-lg hover:bg-[var(--hover-bg)] transition-colors"
+                    aria-label="Уведомления"
                   >
                     <Bell className="w-5 h-5 text-[var(--text-muted)]" />
                     {unreadCount > 0 && (
@@ -243,6 +244,7 @@ export default function Header() {
                   <button
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
                     className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--ghost-bg)] border border-[var(--border)] hover:bg-[var(--hover-bg-medium)] transition-all"
+                    aria-label="Меню пользователя"
                   >
                     <div className="w-6 h-6 rounded-full bg-brand flex items-center justify-center">
                       <User className="w-3 h-3 text-white" />

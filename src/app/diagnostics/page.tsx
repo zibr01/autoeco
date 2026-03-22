@@ -255,7 +255,7 @@ export default function DiagnosticsPage() {
               {diagnosisShown && !isTyping && (
                 <div className="pl-11 flex flex-wrap gap-2">
                   <Link
-                    href="/services"
+                    href="/services?type=sto"
                     className="inline-flex items-center gap-2 btn-primary text-sm py-2.5 px-5"
                   >
                     <MapPin className="w-4 h-4" />

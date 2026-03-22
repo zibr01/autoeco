@@ -21,6 +21,10 @@ import {
   Building2,
   TrendingUp,
   ChevronDown,
+  MessageSquare,
+  Check,
+  Trash2,
+  Mail,
 } from "lucide-react";
 
 /* ------------------------------------------------------------------ */
@@ -56,7 +60,16 @@ interface SubRequest {
   createdAt: string;
 }
 
-type Tab = "overview" | "users" | "subscriptions";
+interface FeedbackItem {
+  id: string;
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+  type: string;
+}
+
+type Tab = "overview" | "users" | "subscriptions" | "feedback";
 
 /* ------------------------------------------------------------------ */
 /*  Main component                                                     */
@@ -101,6 +114,7 @@ export default function AdminPage() {
     { key: "overview", label: "Обзор", icon: <BarChart3 className="w-4 h-4" /> },
     { key: "users", label: "Пользователи", icon: <Users className="w-4 h-4" /> },
     { key: "subscriptions", label: "Подписки", icon: <CreditCard className="w-4 h-4" /> },
+    { key: "feedback", label: "Обратная связь", icon: <MessageSquare className="w-4 h-4" /> },
   ];
 
   return (
@@ -136,6 +150,7 @@ export default function AdminPage() {
       {activeTab === "overview" && <OverviewTab />}
       {activeTab === "users" && <UsersTab toast={toast} />}
       {activeTab === "subscriptions" && <SubscriptionsTab toast={toast} />}
+      {activeTab === "feedback" && <FeedbackTab toast={toast} />}
     </AppLayout>
   );
 }
@@ -495,6 +510,208 @@ function SubscriptionsTab({ toast }: { toast: (msg: string) => void }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Tab 4 — Feedback                                                   */
+/* ------------------------------------------------------------------ */
+
+function FeedbackTab({ toast }: { toast: (msg: string) => void }) {
+  const [items, setItems] = useState<FeedbackItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [unread, setUnread] = useState(0);
+  const [skip, setSkip] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  const TAKE = 20;
+
+  const fetchFeedback = useCallback(
+    async (skipVal: number, append: boolean) => {
+      append ? setLoadingMore(true) : setLoading(true);
+      try {
+        const params = new URLSearchParams({ take: String(TAKE), skip: String(skipVal) });
+        const res = await fetch(`/api/admin/feedback?${params}`);
+        const data = await res.json();
+        const list: FeedbackItem[] = data.items ?? [];
+        if (append) {
+          setItems((prev) => [...prev, ...list]);
+        } else {
+          setItems(list);
+        }
+        setTotal(data.total ?? 0);
+        setUnread(data.unread ?? 0);
+        setHasMore(list.length === TAKE);
+        setSkip(skipVal + list.length);
+      } catch {
+        toast("Ошибка загрузки обратной связи");
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    },
+    [toast],
+  );
+
+  useEffect(() => {
+    fetchFeedback(0, false);
+  }, [fetchFeedback]);
+
+  const markAsRead = async (id: string) => {
+    setActionLoading(id);
+    try {
+      const res = await fetch("/api/admin/feedback", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) throw new Error();
+      setItems((prev) => prev.map((item) => (item.id === id ? { ...item, read: true } : item)));
+      setUnread((prev) => Math.max(0, prev - 1));
+      toast("Отмечено как прочитанное");
+    } catch {
+      toast("Ошибка обновления");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const deleteFeedback = async (id: string) => {
+    if (!window.confirm("Удалить это сообщение?")) return;
+    setActionLoading(id);
+    try {
+      const res = await fetch(`/api/admin/feedback?id=${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      const wasUnread = items.find((item) => item.id === id && !item.read);
+      setItems((prev) => prev.filter((item) => item.id !== id));
+      setTotal((prev) => prev - 1);
+      if (wasUnread) setUnread((prev) => Math.max(0, prev - 1));
+      toast("Сообщение удалено");
+    } catch {
+      toast("Ошибка удаления");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="w-6 h-6 text-brand animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Summary */}
+      <div className="flex items-center gap-4 mb-4">
+        <div className="glass rounded-xl px-4 py-2 flex items-center gap-2">
+          <Mail className="w-4 h-4 text-text-muted" />
+          <span className="text-sm text-text-muted">Всего:</span>
+          <span className="text-sm font-semibold text-text">{total}</span>
+        </div>
+        <div className="glass rounded-xl px-4 py-2 flex items-center gap-2">
+          <MessageSquare className="w-4 h-4 text-brand-light" />
+          <span className="text-sm text-text-muted">Непрочитанных:</span>
+          <span className="text-sm font-semibold text-brand-light">{unread}</span>
+        </div>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="glass rounded-xl p-6 text-center">
+          <MessageSquare className="w-6 h-6 text-text-muted mx-auto mb-2" />
+          <p className="text-text-muted text-sm">Нет сообщений обратной связи</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {items.map((item) => {
+            const busy = actionLoading === item.id;
+            return (
+              <div key={item.id} className="card-surface">
+                <div className="flex items-start gap-3">
+                  {/* Unread indicator */}
+                  <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-brand/20 flex-shrink-0 relative">
+                    <MessageSquare className="w-5 h-5 text-brand-light" />
+                    {!item.read && (
+                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full border-2 border-[var(--bg)]" />
+                    )}
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-text text-sm">{item.title}</span>
+                      {!item.read && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-blue-500/20 text-blue-400 font-medium">
+                          Новое
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-text-muted mt-1 break-words">{item.message}</p>
+                    <div className="text-xs text-text-muted mt-1.5">
+                      {new Date(item.createdAt).toLocaleString("ru-RU", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {busy && <Loader2 className="w-4 h-4 text-brand animate-spin" />}
+                    {!item.read && (
+                      <button
+                        onClick={() => markAsRead(item.id)}
+                        disabled={busy}
+                        title="Прочитано"
+                        className="p-2 rounded-lg text-emerald-400 hover:bg-emerald-500/20 transition-all disabled:opacity-50"
+                      >
+                        <Check className="w-4 h-4" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => deleteFeedback(item.id)}
+                      disabled={busy}
+                      title="Удалить"
+                      className="p-2 rounded-lg text-red-400 hover:bg-red-500/20 transition-all disabled:opacity-50"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Load more */}
+      {hasMore && !loading && items.length > 0 && (
+        <div className="flex justify-center mt-4">
+          <button
+            onClick={() => fetchFeedback(skip, true)}
+            disabled={loadingMore}
+            className="btn-primary text-sm !py-2 flex items-center gap-2 disabled:opacity-50"
+          >
+            {loadingMore ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Загрузка...
+              </>
+            ) : (
+              "Загрузить ещё"
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

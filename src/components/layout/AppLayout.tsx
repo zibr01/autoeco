@@ -53,7 +53,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* Bottom Tab Bar — mobile only */}
       {status === "authenticated" && (
-        <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden glass-dark border-t border-[var(--border)]">
+        <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden glass-dark border-t border-[var(--border)]" aria-label="Мобильная навигация">
           <div className="flex items-center justify-around h-16 px-2 max-w-lg mx-auto">
             {bottomTabs.map((tab) => {
               const isActive = pathname === tab.href || (tab.href !== "/dashboard" && pathname.startsWith(tab.href));
@@ -62,6 +62,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <Link
                   key={tab.href}
                   href={tab.href}
+                  aria-label={tab.label}
                   className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all ${
                     isActive
                       ? "text-brand"
