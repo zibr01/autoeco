@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
@@ -134,9 +135,9 @@ export default function GaragePage() {
               <Link href={`/garage/${car.id}`} key={car.id}>
                 <div className="card-surface hover:border-brand/30 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group">
                   <div className="flex gap-5">
-                    <div className="w-32 h-24 rounded-xl overflow-hidden flex-shrink-0 bg-bg-elevated">
+                    <div className="w-32 h-24 rounded-xl overflow-hidden flex-shrink-0 bg-bg-elevated relative">
                       {car.image ? (
-                        <img src={car.image} alt={`${car.make} ${car.model}`} className="w-full h-full object-cover" />
+                        <Image src={car.image} alt={`${car.make} ${car.model}`} className="object-cover" fill sizes="128px" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-text-dim">
                           <Car className="w-8 h-8 opacity-30" />

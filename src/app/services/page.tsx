@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useSession } from "next-auth/react";
 import AppLayout from "@/components/layout/AppLayout";
 import {
@@ -392,10 +393,12 @@ export default function ServicesPage() {
                         <div className="card-surface hover:border-brand/30 hover:-translate-y-0.5 hover:shadow-card-hover transition-all duration-200 cursor-pointer group flex flex-col sm:flex-row gap-4">
                           {/* Image */}
                           <div className="h-44 sm:h-auto sm:w-48 rounded-xl overflow-hidden bg-bg-elevated flex-shrink-0 relative">
-                            <img
+                            <Image
                               src={service.image}
                               alt={service.name}
-                              className="w-full h-full object-cover sm:absolute sm:inset-0"
+                              className="object-cover"
+                              fill
+                              sizes="(max-width: 640px) 100vw, 192px"
                             />
                             {service.featured && (
                               <div className="absolute top-3 left-3 tag-brand text-xs">Топ</div>
@@ -506,9 +509,9 @@ export default function ServicesPage() {
                       style={{ background: selectedServiceId === service.id ? undefined : "var(--bg-card)" }}
                     >
                       {/* Thumbnail */}
-                      <div className="w-20 h-20 flex-shrink-0 rounded-lg bg-[var(--ghost-bg)] overflow-hidden">
+                      <div className="w-20 h-20 flex-shrink-0 rounded-lg bg-[var(--ghost-bg)] overflow-hidden relative">
                         {service.image ? (
-                          <img src={service.image} alt={service.name} className="w-full h-full object-cover" />
+                          <Image src={service.image} alt={service.name} className="object-cover" fill sizes="80px" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-text-dim text-2xl">🔧</div>
                         )}

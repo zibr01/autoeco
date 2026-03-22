@@ -104,6 +104,8 @@ model Car {
   documents          CarDocument[]
   expenses           Expense[]
   installedParts     InstalledPart[]
+
+  @@index([userId])
 }
 
 model CarDocument {
@@ -120,6 +122,8 @@ model CarDocument {
   createdAt   DateTime  @default(now())
 
   car Car @relation(fields: [carId], references: [id], onDelete: Cascade)
+
+  @@index([carId])
 }
 
 model MaintenanceRecord {
@@ -133,6 +137,8 @@ model MaintenanceRecord {
   serviceName String
 
   car Car @relation(fields: [carId], references: [id], onDelete: Cascade)
+
+  @@index([carId])
 }
 
 model Reminder {
@@ -146,6 +152,8 @@ model Reminder {
   description String
 
   car Car @relation(fields: [carId], references: [id], onDelete: Cascade)
+
+  @@index([carId])
 }
 
 // ─── Expenses (расходы на авто) ──────────────────
@@ -161,6 +169,9 @@ model Expense {
   createdAt   DateTime @default(now())
 
   car Car @relation(fields: [carId], references: [id], onDelete: Cascade)
+
+  @@index([carId])
+  @@index([carId, date])
 }
 
 // ─── Installed Parts (установленные запчасти) ────
@@ -241,6 +252,8 @@ model Review {
   serviceCenter ServiceCenter @relation(fields: [serviceCenterId], references: [id], onDelete: Cascade)
   user          User?         @relation(fields: [userId], references: [id])
   reply         ReviewReply?
+
+  @@index([serviceCenterId])
 }
 
 model ReviewReply {
@@ -342,6 +355,10 @@ model Booking {
   user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   serviceCenter ServiceCenter @relation(fields: [serviceCenterId], references: [id], onDelete: Cascade)
   car           Car           @relation(fields: [carId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([serviceCenterId])
+  @@index([serviceCenterId, createdAt])
 }
 
 // ─── Orders (parts) ─────────────────────────────────
@@ -361,6 +378,8 @@ model Order {
 
   user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   items OrderItem[]
+
+  @@index([userId])
 }
 
 model OrderItem {
@@ -392,6 +411,10 @@ model Message {
 
   sender   User @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
   receiver User @relation("MessageReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([senderId, receiverId])
 }
 
 // ─── Notifications ──────────────────────────────
@@ -407,6 +430,9 @@ model Notification {
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, read])
 }
 
 // ─── EcoPoints (Loyalty) ────────────────────────
@@ -420,4 +446,6 @@ model EcoPointsTransaction {
   createdAt   DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

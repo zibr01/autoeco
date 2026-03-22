@@ -73,14 +73,19 @@ export async function GET() {
     });
   }
 
-  // ─── Top clients (by booking count) ───
+  // ─── Top clients (by booking count, last 12 months) ───
+  const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1);
   const bookingsWithUsers = await prisma.booking.findMany({
-    where: { serviceCenterId: sc.id },
+    where: {
+      serviceCenterId: sc.id,
+      createdAt: { gte: twelveMonthsAgo },
+    },
     include: {
       user: { select: { id: true, name: true, phone: true, email: true, subscription: true } },
       car: { select: { make: true, model: true } },
     },
     orderBy: { createdAt: "desc" },
+    take: 2000,
   });
 
   const clientMap = new Map<string, {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import AppLayout from "@/components/layout/AppLayout";
@@ -502,7 +503,7 @@ export default function ServiceProfilePage() {
           {/* Header card */}
           <div className="card-surface">
             <div className="h-56 rounded-xl overflow-hidden bg-bg-elevated mb-5 relative">
-              <img src={service.image} alt={service.name} className="w-full h-full object-cover" />
+              <Image src={service.image} alt={service.name} className="object-cover" fill sizes="(max-width: 1024px) 100vw, 66vw" />
               {service.verified && (
                 <div className="absolute top-4 right-4 flex items-center gap-1.5 glass px-3 py-1.5 rounded-xl text-sm text-emerald-400">
                   <Shield className="w-4 h-4" />
@@ -629,7 +630,7 @@ export default function ServiceProfilePage() {
                     onClick={() => setLightboxIndex(i)}
                     className="aspect-video rounded-xl overflow-hidden bg-bg-elevated cursor-pointer hover:opacity-90 transition-opacity"
                   >
-                    <img src={photo} alt="Работа" className="w-full h-full object-cover" />
+                    <Image src={photo} alt="Работа" className="object-cover" fill sizes="(max-width: 640px) 50vw, 33vw" />
                   </button>
                 ))}
               </div>
@@ -670,10 +671,12 @@ export default function ServiceProfilePage() {
                   </button>
                 </>
               )}
-              <img
+              <Image
                 src={photosList[lightboxIndex]}
                 alt="Фото"
                 className="max-h-[85vh] max-w-[90vw] object-contain rounded-xl"
+                width={900}
+                height={600}
                 onClick={(e) => e.stopPropagation()}
               />
               <div className="absolute bottom-4 text-white/50 text-sm">
@@ -736,8 +739,8 @@ export default function ServiceProfilePage() {
                     href={`/services/${s.id}`}
                     className="rounded-xl border border-[var(--border)] hover:border-brand/30 hover:-translate-y-0.5 transition-all overflow-hidden group"
                   >
-                    <div className="h-28 bg-bg-elevated overflow-hidden">
-                      <img src={s.image} alt={s.name} className="w-full h-full object-cover" />
+                    <div className="h-28 bg-bg-elevated overflow-hidden relative">
+                      <Image src={s.image} alt={s.name} className="object-cover" fill sizes="(max-width: 640px) 100vw, 33vw" />
                     </div>
                     <div className="p-3">
                       <h3 className="text-sm font-medium text-text truncate group-hover:text-brand-light transition-colors">

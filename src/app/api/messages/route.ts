@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   const withUserId = req.nextUrl.searchParams.get("with");
 
   if (withUserId) {
-    // Get messages between current user and another user
+    // Get messages between current user and another user (last 100)
     const messages = await prisma.message.findMany({
       where: {
         OR: [
@@ -20,11 +20,13 @@ export async function GET(req: NextRequest) {
           { senderId: withUserId, receiverId: user.id },
         ],
       },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: "desc" },
+      take: 100,
       include: {
         sender: { select: { id: true, name: true, role: true } },
       },
     });
+    messages.reverse(); // Return in chronological order
 
     // Mark unread messages as read
     await prisma.message.updateMany({
@@ -39,12 +41,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(messages);
   }
 
-  // List all conversations (grouped by partner)
+  // List conversations (grouped by partner, last 500 messages max)
   const allMessages = await prisma.message.findMany({
     where: {
       OR: [{ senderId: user.id }, { receiverId: user.id }],
     },
     orderBy: { createdAt: "desc" },
+    take: 500,
     include: {
       sender: { select: { id: true, name: true, role: true } },
       receiver: { select: { id: true, name: true, role: true } },
@@ -103,6 +106,10 @@ export async function POST(req: NextRequest) {
 
   if (!receiverId || !text?.trim()) {
     return NextResponse.json({ error: "Получатель и текст обязательны" }, { status: 400 });
+  }
+
+  if (text.trim().length > 5000) {
+    return NextResponse.json({ error: "Сообщение слишком длинное (макс. 5000 символов)" }, { status: 400 });
   }
 
   // Verify receiver exists

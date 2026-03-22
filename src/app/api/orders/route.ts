@@ -38,7 +38,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Имя, телефон и адрес обязательны" }, { status: 400 });
   }
 
-  // Validate part offers exist and calculate total
+  if (items.length > 50) {
+    return NextResponse.json({ error: "Максимум 50 товаров в заказе" }, { status: 400 });
+  }
+
+  // Batch fetch all part offers (fixes N+1)
+  const offerIds = items.map((item: { partOfferId: string }) => item.partOfferId);
+  const offers = await prisma.partOffer.findMany({
+    where: { id: { in: offerIds } },
+    include: { part: { select: { name: true } } },
+  });
+
+  const offerMap = new Map(offers.map((o) => [o.id, o]));
+
   let totalPrice = 0;
   const orderItems: {
     partOfferId: string;
@@ -51,10 +63,7 @@ export async function POST(req: NextRequest) {
   }[] = [];
 
   for (const item of items) {
-    const offer = await prisma.partOffer.findUnique({
-      where: { id: item.partOfferId },
-      include: { part: { select: { name: true } } },
-    });
+    const offer = offerMap.get(item.partOfferId);
 
     if (!offer) {
       return NextResponse.json({ error: `Товар не найден: ${item.partOfferId}` }, { status: 400 });

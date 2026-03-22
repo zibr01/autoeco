@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
 
   const search = req.nextUrl.searchParams.get("search") || "";
 
-  // Get all bookings for this service center with user and car data
+  // Get bookings for this service center (last 2000, enough for client aggregation)
   const bookings = await prisma.booking.findMany({
     where: { serviceCenterId: sc.id },
     include: {
@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
       car: { select: { make: true, model: true, year: true } },
     },
     orderBy: { createdAt: "desc" },
+    take: 2000,
   });
 
   // Aggregate by client

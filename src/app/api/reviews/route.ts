@@ -19,6 +19,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Рейтинг от 1 до 5" }, { status: 400 });
     }
 
+    if (data.text.length > 2000) {
+      return NextResponse.json({ error: "Отзыв слишком длинный (макс. 2000 символов)" }, { status: 400 });
+    }
+
     const dbUser = await prisma.user.findUnique({
       where: { id: user.id },
       select: { name: true },

@@ -35,6 +35,11 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: "bookingId и status обязательны" }, { status: 400 });
     }
 
+    const validStatuses = ["pending", "confirmed", "completed", "cancelled"];
+    if (!validStatuses.includes(status)) {
+      return NextResponse.json({ error: "Недопустимый статус" }, { status: 400 });
+    }
+
     // Users can only cancel their own bookings
     const booking = await prisma.booking.findFirst({
       where: { id: bookingId, userId: user.id },

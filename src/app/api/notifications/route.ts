@@ -15,10 +15,11 @@ export async function GET() {
     take: 50,
   });
 
-  // 2. Dynamic reminder-based notifications
+  // 2. Dynamic reminder-based notifications (limit to 10 cars, 20 reminders each)
   const cars = await prisma.car.findMany({
     where: { userId: user.id },
-    include: { reminders: true },
+    take: 10,
+    include: { reminders: { take: 20 } },
   });
 
   const reminderNotifications = [];

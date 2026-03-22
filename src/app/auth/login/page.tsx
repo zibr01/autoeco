@@ -147,14 +147,16 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Demo credentials */}
-        <div className="mt-4 p-3 rounded-xl bg-brand/5 border border-brand/10 text-center space-y-1.5">
-          <p className="text-xs text-text-muted">Демо-аккаунты для тестирования:</p>
-          <p className="text-xs font-mono text-text">
-            kirill@example.com / password123
-          </p>
-          <p className="text-[10px] text-text-dim">B2B: admin@autotech.ru / business123</p>
-        </div>
+        {/* Demo credentials — only in development */}
+        {process.env.NEXT_PUBLIC_SHOW_DEMO === "true" && (
+          <div className="mt-4 p-3 rounded-xl bg-brand/5 border border-brand/10 text-center space-y-1.5">
+            <p className="text-xs text-text-muted">Демо-аккаунты для тестирования:</p>
+            <p className="text-xs font-mono text-text">
+              kirill@example.com / password123
+            </p>
+            <p className="text-[10px] text-text-dim">B2B: admin@autotech.ru / business123</p>
+          </div>
+        )}
       </div>
     </div>
   );

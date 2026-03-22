@@ -14,7 +14,16 @@ export async function GET(req: Request) {
   if (district) where.district = district;
   if (minRating) where.rating = { gte: parseFloat(minRating) };
 
-  let services = await prisma.serviceCenter.findMany({
+  // Text search at DB level using PostgreSQL case-insensitive contains
+  if (search) {
+    where.OR = [
+      { name: { contains: search, mode: "insensitive" } },
+      { address: { contains: search, mode: "insensitive" } },
+      { tags: { contains: search, mode: "insensitive" } },
+    ];
+  }
+
+  const services = await prisma.serviceCenter.findMany({
     where,
     include: {
       priceList: true,
@@ -22,17 +31,6 @@ export async function GET(req: Request) {
     },
     orderBy: [{ featured: "desc" }, { rating: "desc" }],
   });
-
-  // Text search (SQLite doesn't support full-text, filter in JS)
-  if (search) {
-    const q = search.toLowerCase();
-    services = services.filter(
-      (s) =>
-        s.name.toLowerCase().includes(q) ||
-        s.address.toLowerCase().includes(q) ||
-        s.tags.toLowerCase().includes(q)
-    );
-  }
 
   return NextResponse.json(services);
 }

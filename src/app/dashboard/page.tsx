@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
@@ -359,8 +360,8 @@ export default function DashboardPage() {
 
                 return (
                   <Link key={car.id} href={`/garage/${car.id}`} className="flex items-center gap-4 p-3 -mx-3 rounded-xl hover:bg-prussian/[0.02] transition-all group">
-                    <div className="w-16 h-12 rounded-lg overflow-hidden bg-bg-elevated flex-shrink-0">
-                      <img src={car.image} alt={car.make} className="w-full h-full object-cover" />
+                    <div className="w-16 h-12 rounded-lg overflow-hidden bg-bg-elevated flex-shrink-0 relative">
+                      <Image src={car.image} alt={car.make} className="object-cover" fill />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
@@ -607,8 +608,8 @@ export default function DashboardPage() {
               <div className="space-y-2">
                 {favorites.slice(0, 3).map((fav) => (
                   <Link key={fav.serviceCenter.id} href={`/services/${fav.serviceCenter.id}`} className="flex items-center gap-3 p-2 -mx-2 rounded-xl hover:bg-prussian/[0.02] transition-all group">
-                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-bg-elevated flex-shrink-0">
-                      <img src={fav.serviceCenter.image} alt="" className="w-full h-full object-cover" />
+                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-bg-elevated flex-shrink-0 relative">
+                      <Image src={fav.serviceCenter.image} alt="" className="object-cover" fill />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-text truncate">{fav.serviceCenter.name}</div>

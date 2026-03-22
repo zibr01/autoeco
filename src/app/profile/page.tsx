@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import AppLayout from "@/components/layout/AppLayout";
@@ -355,8 +356,8 @@ function CarsTab({ cars }: { cars: CarItem[] }) {
       )}
       {cars.map((car) => (
         <Link key={car.id} href={`/garage/${car.id}`} className="card-surface flex items-center gap-5 group hover:border-brand/30 transition-all">
-          <div className="w-24 h-16 rounded-xl overflow-hidden bg-bg-elevated flex-shrink-0">
-            <img src={car.image} alt={car.make} className="w-full h-full object-cover" />
+          <div className="w-24 h-16 rounded-xl overflow-hidden bg-bg-elevated flex-shrink-0 relative">
+            <Image src={car.image} alt={car.make} className="object-cover" fill sizes="96px" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">

@@ -100,6 +100,15 @@ export async function DELETE(
     return NextResponse.json({ error: "Авто не найдено" }, { status: 404 });
   }
 
+  // Verify expense belongs to this car (ownership check)
+  const expense = await prisma.expense.findFirst({
+    where: { id: expenseId, carId: params.id },
+  });
+
+  if (!expense) {
+    return NextResponse.json({ error: "Расход не найден" }, { status: 404 });
+  }
+
   await prisma.expense.delete({ where: { id: expenseId } });
 
   return NextResponse.json({ ok: true });

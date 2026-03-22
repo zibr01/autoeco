@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getBusinessUser, getBusinessServiceCenter } from "@/lib/business-helpers";
 
+function safeJsonParse(str: string | null | undefined): unknown[] {
+  try {
+    return JSON.parse(str || "[]");
+  } catch {
+    return [];
+  }
+}
+
 export async function GET() {
   const sc = await getBusinessServiceCenter();
   if (!sc) {
@@ -21,9 +29,9 @@ export async function GET() {
     description: sc.description,
     priceFrom: sc.priceFrom,
     clubDiscount: sc.clubDiscount ?? 20,
-    tags: JSON.parse(sc.tags || "[]"),
-    services: JSON.parse(sc.services || "[]"),
-    photos: JSON.parse(sc.photos || "[]"),
+    tags: safeJsonParse(sc.tags),
+    services: safeJsonParse(sc.services),
+    photos: safeJsonParse(sc.photos),
     verified: sc.verified,
   });
 }
