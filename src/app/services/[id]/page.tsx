@@ -269,6 +269,145 @@ export default function ServiceProfilePage() {
     }
   };
 
+  const renderBookingForm = () => (
+    <div className="card-surface">
+      <h2 className="font-semibold text-text mb-5">Онлайн-запись</h2>
+
+      {/* Car select */}
+      <div className="mb-4">
+        <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Автомобиль</label>
+        {authStatus === "authenticated" && cars.length > 0 ? (
+          <select
+            className="input-field text-sm bg-white"
+            value={selectedCarId}
+            onChange={(e) => setSelectedCarId(e.target.value)}
+          >
+            {cars.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.make} {c.model} {c.year}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <div className="text-sm text-text-muted p-3 rounded-xl bg-bg-elevated">
+            <Link href="/auth/login" className="text-brand-light hover:underline">Войдите</Link> чтобы выбрать авто
+          </div>
+        )}
+      </div>
+
+      {/* Service select */}
+      <div className="mb-4">
+        <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Услуга</label>
+        <select
+          className="input-field text-sm bg-white"
+          value={selectedService}
+          onChange={(e) => setSelectedService(e.target.value)}
+        >
+          {(service ? parseJson(service.services) : []).map((s: string) => (
+            <option key={s}>{s}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Date picker */}
+      <div className="mb-4">
+        <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Дата</label>
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+          {nextDays.map((day, i) => (
+            <button
+              key={i}
+              onClick={() => { setSelectedDay(i); setSelectedTime(null); }}
+              className={`flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-xl text-xs transition-all duration-200 ${
+                selectedDay === i
+                  ? "bg-brand text-white shadow-brand"
+                  : "glass text-text-muted hover:text-prussian hover:bg-prussian/[0.06]"
+              }`}
+            >
+              <span>{dayLabels[day.getDay()]}</span>
+              <span className="text-base font-bold mt-0.5">{day.getDate()}</span>
+              <span className="text-[10px] opacity-70">{monthLabels[day.getMonth()]}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Time slots */}
+      <div className="mb-4">
+        <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Время</label>
+        {service?.timeSlots[0]?.time === "Без записи" ? (
+          <div className="tag-green text-sm">Без записи, приезжайте в любое время</div>
+        ) : (
+          <div className="grid grid-cols-3 gap-2">
+            {service?.timeSlots.map((slot) => (
+              <button
+                key={slot.time}
+                disabled={!slot.available}
+                onClick={() => setSelectedTime(slot.time)}
+                className={`py-2 rounded-xl text-sm transition-all duration-200 ${
+                  !slot.available
+                    ? "opacity-30 cursor-not-allowed glass text-text-muted"
+                    : selectedTime === slot.time
+                    ? "bg-brand text-white shadow-brand"
+                    : "glass text-text-muted hover:text-prussian hover:bg-prussian/[0.06]"
+                }`}
+              >
+                {slot.time}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Name + phone */}
+      <div className="space-y-3 mb-5">
+        <div>
+          <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Имя</label>
+          <input
+            className={`input-field text-sm ${nameError ? "border-red-500/50" : ""}`}
+            placeholder="Ваше имя"
+            value={name}
+            onChange={(e) => handleNameChange(e.target.value)}
+          />
+          {nameError && <p className="text-xs text-red-400 mt-1">{nameError}</p>}
+        </div>
+        <div>
+          <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Телефон</label>
+          <input
+            className={`input-field text-sm ${phoneError ? "border-red-500/50" : ""}`}
+            placeholder="+7 (___) ___-__-__"
+            type="tel"
+            value={phone}
+            onChange={(e) => handlePhoneChange(e.target.value)}
+          />
+          {phoneError && <p className="text-xs text-red-400 mt-1">{phoneError}</p>}
+        </div>
+      </div>
+
+      <button
+        onClick={handleBook}
+        disabled={!selectedTime || !name || !phone || booking}
+        className={`w-full btn-primary flex items-center justify-center gap-2 ${
+          (!selectedTime || !name || !phone || booking) ? "opacity-40 cursor-not-allowed hover:translate-y-0 hover:shadow-none" : ""
+        }`}
+      >
+        {booking ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : (
+          <>
+            Подтвердить запись
+            <ArrowRight className="w-4 h-4" />
+          </>
+        )}
+      </button>
+
+      {(!selectedTime || !name || !phone) && !booking && (
+        <p className="text-xs text-text-dim mt-2 text-center">
+          {!selectedTime ? "Выберите время" : !name ? "Введите имя" : "Введите телефон"}
+        </p>
+      )}
+    </div>
+  );
+
   if (loading) {
     return (
       <AppLayout>
@@ -449,6 +588,11 @@ export default function ServiceProfilePage() {
             <p className="text-text-muted text-sm leading-relaxed">{service.description}</p>
           </div>
 
+          {/* Mobile Booking — shown only on mobile, before services list */}
+          <div className="lg:hidden">
+            {renderBookingForm()}
+          </div>
+
           {/* Services list */}
           <div className="card-surface">
             <h2 className="font-semibold text-text mb-4">Услуги</h2>
@@ -619,205 +763,11 @@ export default function ServiceProfilePage() {
           )}
         </div>
 
-        {/* Right: Booking */}
-        <div className="space-y-4">
-          <div className="card-surface lg:sticky lg:top-20">
-            <h2 className="font-semibold text-text mb-5">Онлайн-запись</h2>
+        {/* Right: Booking — desktop only */}
+        <div className="hidden lg:block space-y-4">
+          <div className="lg:sticky lg:top-20">
+            {renderBookingForm()}
 
-            {/* Car select */}
-            <div className="mb-4">
-              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Автомобиль</label>
-              {authStatus === "authenticated" && cars.length > 0 ? (
-                <select
-                  className="input-field text-sm bg-white"
-                  value={selectedCarId}
-                  onChange={(e) => setSelectedCarId(e.target.value)}
-                >
-                  {cars.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.make} {c.model} {c.year}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <div className="text-sm text-text-muted p-3 rounded-xl bg-bg-elevated">
-                  <Link href="/auth/login" className="text-brand-light hover:underline">Войдите</Link> чтобы выбрать авто
-                </div>
-              )}
-            </div>
-
-            {/* Service select */}
-            <div className="mb-4">
-              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Услуга</label>
-              <select
-                className="input-field text-sm bg-white"
-                value={selectedService}
-                onChange={(e) => setSelectedService(e.target.value)}
-              >
-                {servicesList.map((s: string) => (
-                  <option key={s}>{s}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Club pricing banner */}
-            {session?.user && (() => {
-              const isPremium = session.user.subscription === "PREMIUM";
-              const priceItem = service.priceList.find(p => p.name === selectedService) || service.priceList[0];
-              const numericPrice = priceItem ? parseInt(priceItem.price.replace(/\D/g, "")) : 0;
-              const clubPrice = numericPrice ? Math.round(numericPrice * 0.75) : 0;
-              const savings = numericPrice ? numericPrice - clubPrice : 0;
-
-              if (isPremium && numericPrice > 0) {
-                return (
-                  <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] p-3">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-semibold uppercase tracking-wider bg-emerald-500 text-white px-2 py-0.5 rounded-full">Клубная цена</span>
-                      <span className="text-text-muted line-through text-sm">{numericPrice.toLocaleString()} ₽</span>
-                      <span className="text-emerald-600 font-bold text-base">{clubPrice.toLocaleString()} ₽</span>
-                    </div>
-                    <p className="text-xs text-emerald-600">Вы экономите {savings.toLocaleString()} ₽ · Скидка применяется автоматически</p>
-                  </div>
-                );
-              }
-              if (!isPremium) {
-                return (
-                  <div className="mb-4 rounded-xl border border-brand/20 bg-brand/[0.04] p-3 flex items-center justify-between gap-2">
-                    <p className="text-xs text-text-muted">Клубники экономят ~25% на этом сервисе</p>
-                    <Link href="/subscription" className="text-xs font-semibold text-brand hover:underline whitespace-nowrap">Оформить карту →</Link>
-                  </div>
-                );
-              }
-              return null;
-            })()}
-
-            {/* Date picker */}
-            <div className="mb-4">
-              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Дата</label>
-              <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
-                {nextDays.map((day, i) => (
-                  <button
-                    key={i}
-                    onClick={() => { setSelectedDay(i); setSelectedTime(null); }}
-                    className={`flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-xl text-xs transition-all duration-200 ${
-                      selectedDay === i
-                        ? "bg-brand text-white shadow-brand"
-                        : "glass text-text-muted hover:text-prussian hover:bg-prussian/[0.06]"
-                    }`}
-                  >
-                    <span>{dayLabels[day.getDay()]}</span>
-                    <span className="text-base font-bold mt-0.5">{day.getDate()}</span>
-                    <span className="text-[10px] opacity-70">{monthLabels[day.getMonth()]}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Time slots */}
-            <div className="mb-4">
-              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Время</label>
-              {service.timeSlots[0]?.time === "Без записи" ? (
-                <div className="tag-green text-sm">Без записи, приезжайте в любое время</div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {service.timeSlots.map((slot) => (
-                    <button
-                      key={slot.time}
-                      disabled={!slot.available}
-                      onClick={() => setSelectedTime(slot.time)}
-                      className={`py-2 rounded-xl text-sm transition-all duration-200 ${
-                        !slot.available
-                          ? "opacity-30 cursor-not-allowed glass text-text-muted"
-                          : selectedTime === slot.time
-                          ? "bg-brand text-white shadow-brand"
-                          : "glass text-text-muted hover:text-prussian hover:bg-prussian/[0.06]"
-                      }`}
-                    >
-                      {slot.time}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Name + phone */}
-            <div className="space-y-3 mb-5">
-              <div>
-                <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Имя</label>
-                <input
-                  className={`input-field text-sm ${nameError ? "border-red-500/50" : ""}`}
-                  placeholder="Ваше имя"
-                  value={name}
-                  onChange={(e) => handleNameChange(e.target.value)}
-                />
-                {nameError && <p className="text-xs text-red-400 mt-1">{nameError}</p>}
-              </div>
-              <div>
-                <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Телефон</label>
-                <input
-                  className={`input-field text-sm ${phoneError ? "border-red-500/50" : ""}`}
-                  placeholder="+7 (___) ___-__-__"
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => handlePhoneChange(e.target.value)}
-                />
-                {phoneError && <p className="text-xs text-red-400 mt-1">{phoneError}</p>}
-              </div>
-            </div>
-
-            {/* Promo code */}
-            <div className="mb-5">
-              <label className="text-xs text-text-muted uppercase tracking-wider mb-2 block">Промокод</label>
-              <div className="flex gap-2">
-                <input
-                  className="input-field text-sm flex-1"
-                  placeholder="Введите код"
-                  value={promoCode}
-                  onChange={(e) => { setPromoCode(e.target.value.toUpperCase()); setPromoResult(null); }}
-                />
-                <button
-                  onClick={checkPromo}
-                  disabled={promoChecking || !promoCode.trim()}
-                  className="px-3 py-2 rounded-xl bg-brand/10 text-brand text-sm font-medium hover:bg-brand/20 transition-colors disabled:opacity-40"
-                >
-                  <Ticket className="w-4 h-4" />
-                </button>
-              </div>
-              {promoResult && (
-                <div className={`mt-2 text-xs px-3 py-2 rounded-xl ${
-                  promoResult.valid
-                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                    : "bg-red-500/10 text-red-400 border border-red-500/20"
-                }`}>
-                  {promoResult.valid
-                    ? `Скидка ${promoResult.discountPercent}% — ${promoResult.description}`
-                    : promoResult.error}
-                </div>
-              )}
-            </div>
-
-            <button
-              onClick={handleBook}
-              disabled={!selectedTime || !name || !phone || booking}
-              className={`w-full btn-primary flex items-center justify-center gap-2 ${
-                (!selectedTime || !name || !phone || booking) ? "opacity-40 cursor-not-allowed hover:translate-y-0 hover:shadow-none" : ""
-              }`}
-            >
-              {booking ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  Подтвердить запись
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-
-            {(!selectedTime || !name || !phone) && !booking && (
-              <p className="text-xs text-text-dim mt-2 text-center">
-                {!selectedTime ? "Выберите время" : !name ? "Введите имя" : "Введите телефон"}
-              </p>
-            )}
           </div>
         </div>
       </div>

@@ -5,14 +5,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Header from "./Header";
-import { MessageCircle, X, Send, Loader2, LayoutDashboard, Wrench, Search, Car, User } from "lucide-react";
+import { MessageCircle, X, Send, Loader2, LayoutDashboard, Wrench, Search, ShoppingBag, MessagesSquare } from "lucide-react";
 
 const bottomTabs = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Главная" },
   { href: "/services", icon: Wrench, label: "Сервисы" },
   { href: "/diagnostics", icon: Search, label: "AI" },
-  { href: "/garage", icon: Car, label: "Гараж" },
-  { href: "/profile", icon: User, label: "Профиль" },
+  { href: "/parts", icon: ShoppingBag, label: "Запчасти" },
+  { href: "/messages", icon: MessagesSquare, label: "Чат" },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
