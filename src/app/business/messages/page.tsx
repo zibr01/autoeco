@@ -26,7 +26,7 @@ interface ChatMessage {
   text: string;
   read: boolean;
   createdAt: string;
-  sender: { id: true; name: string | null; role: string };
+  sender: { id: string; name: string | null; role: string };
 }
 
 export default function BusinessMessagesPage() {
