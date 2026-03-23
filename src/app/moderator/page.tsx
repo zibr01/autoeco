@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
-import AppLayout from "@/components/layout/AppLayout";
+import AdminLayout from "@/components/layout/AdminLayout";
 import {
   Shield,
   Plus,
@@ -95,7 +95,7 @@ export default function ModeratorPage() {
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.push("/auth/login");
+      router.push("/panel/login");
       return;
     }
     if (status === "authenticated" && !isAllowed) {
@@ -226,11 +226,11 @@ export default function ModeratorPage() {
 
   if (loading || status === "loading") {
     return (
-      <AppLayout>
+      <AdminLayout>
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-8 h-8 text-brand animate-spin" />
         </div>
-      </AppLayout>
+      </AdminLayout>
     );
   }
 
@@ -250,7 +250,7 @@ export default function ModeratorPage() {
   ];
 
   return (
-    <AppLayout>
+    <AdminLayout>
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
           <Shield className="w-6 h-6 text-brand-light" />
@@ -608,7 +608,7 @@ export default function ModeratorPage() {
           }}
         />
       )}
-    </AppLayout>
+    </AdminLayout>
   );
 }
 

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import AppLayout from "@/components/layout/AppLayout";
+import AdminLayout from "@/components/layout/AdminLayout";
 import { useToast } from "@/components/ui/Toast";
 import {
   Shield,
@@ -109,7 +109,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (status === "unauthenticated") {
-      router.push("/auth/login");
+      router.push("/panel/login");
       return;
     }
     if (status === "authenticated" && !isAdmin) {
@@ -123,11 +123,11 @@ export default function AdminPage() {
 
   if (!pageReady || status === "loading") {
     return (
-      <AppLayout>
+      <AdminLayout>
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-8 h-8 text-brand animate-spin" />
         </div>
-      </AppLayout>
+      </AdminLayout>
     );
   }
 
@@ -139,7 +139,7 @@ export default function AdminPage() {
   ];
 
   return (
-    <AppLayout>
+    <AdminLayout>
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
@@ -172,7 +172,7 @@ export default function AdminPage() {
       {activeTab === "users" && <UsersTab toast={toast} />}
       {activeTab === "subscriptions" && <SubscriptionsTab toast={toast} />}
       {activeTab === "feedback" && <FeedbackTab toast={toast} />}
-    </AppLayout>
+    </AdminLayout>
   );
 }
 
