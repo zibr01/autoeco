@@ -631,7 +631,7 @@ export default function ServiceProfilePage() {
                   <button
                     key={i}
                     onClick={() => setLightboxIndex(i)}
-                    className="aspect-video rounded-xl overflow-hidden bg-bg-elevated cursor-pointer hover:opacity-90 transition-opacity"
+                    className="relative aspect-video rounded-xl overflow-hidden bg-bg-elevated cursor-pointer hover:opacity-90 transition-opacity"
                   >
                     <Image src={photo} alt="Работа" className="object-cover" fill sizes="(max-width: 640px) 50vw, 33vw" />
                   </button>
